@@ -1,0 +1,67 @@
+trigger:
+- STG
+
+pool:
+  name: DEV-AZURE
+  demands: zgtsrtickappd01
+
+stages:
+  - stage: Preparation
+    displayName: 'Build & Validation'
+    jobs:
+      - job: RegressivoRecebiveis
+        displayName: 'Regressivo - Recebiveis'
+        steps:
+          - task: NodeTool@0
+            displayName: "Install Node.js"
+            inputs:
+              versionSpec: "18.x"
+          - script: |
+              echo "Limpando arquivos anteriores"
+              rm -rf "$(Build.SourcesDirectory)/cypress/screenshots"
+              rm -rf "$(Build.SourcesDirectory)/results"
+              rm -rf '$(Build.ArtifactStagingDirectory)/cypress/screenshots'
+              rm -rf "$(Build.SourcesDirectory)/node_modules"
+              rm -rf /root/.cache/Cypress || true
+            displayName: 'Limpar arquivos anteriores'
+            condition: always()
+
+          - script: |
+              npm install
+            displayName: 'npm install'
+
+          - script: |
+              # Dependências necessárias para rodar o Cypress em ambiente Linux (RHEL/CentOS)
+              sudo yum install -y \
+              xorg-x11-server-Xvfb \
+              gtk3 \
+              libnotify \
+              nss \
+              alsa-lib \
+              libXtst \
+              libXrandr \
+              xdg-utils \
+              libXScrnSaver
+            displayName: 'Instalar dependências do Cypress'
+
+          - script: |
+             ping -c 4 receivable-stg-merchants.ticket.edenred.net
+             curl -I receivable-stg-merchants.ticket.edenred.net
+            displayName: 'Diagnóstico de Rede'
+
+          - script: |
+              npx cypress run
+            displayName: 'Executar Testes Regressivos'
+
+          - script: |
+              npm run merge:results
+            displayName: "Merge JUnit Results"
+            condition: succeededOrFailed()
+
+          - task: PublishTestResults@2
+            displayName: 'Publish the test reports'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: 'results/junit-merged.xml'
+              testRunTitle: 'Cypress SmokeTest'
