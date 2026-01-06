@@ -13,3 +13,21 @@ Cypress.Commands.add('readDownloadedExcel', () => {
 });
 
 
+Cypress.Commands.add('loginMicrosoft', () => {
+    cy.visit('/');
+    cy.origin('https://login.microsoftonline.com', () => {
+        const user = Cypress.env('User');
+        const password = Cypress.env('Password');
+        cy.get('input[type="email"]', { timeout: 20000 })
+          .type(user, { force: true });
+        cy.get('input[type="submit"]').click();
+
+        cy.get('input[type="password"]', { timeout: 20000 })
+          .type(password, { force: true, log: false }); 
+
+        cy.get('input[type="submit"]').click();  
+        cy.get('#idBtn_Back').click(); 
+    });
+
+    cy.url().should('include', 'edenred.net');
+});

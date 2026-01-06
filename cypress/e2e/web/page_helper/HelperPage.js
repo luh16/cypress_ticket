@@ -35,6 +35,7 @@ export default class PageBase {
      visibleContainsAlert(element, text) { 
         element().should('contain.text', text, { timeout: 15000 })
         if (Cypress.env('saveScreenshot')) { cy.screenshot('visible element: ' + element) }
+        
     } 
 
     

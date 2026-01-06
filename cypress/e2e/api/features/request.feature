@@ -1,6 +1,6 @@
 Feature: Validar cenario
 
-@teste
+
 Scenario: Primeira request
     Given que acesso o portal merchants hub via api
     When que realizo login no endpoint "/get"

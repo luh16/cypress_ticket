@@ -15,13 +15,18 @@
     "cy:run": "cypress run",
     "allure:generate": "allure generate allure-results --clean -o allure-report",
     "allure:serve": "allure serve allure-results",
-    "test": "npm run cy:run && npm run allure:generate && npm run allure:serve"
+    "test": "npm run cy:run && npm run allure:generate && npm run allure:serve",
+    "teste": "npx cypress open --env grepTags=@teste",
+    "run:regressivo": "npx cypress run --env grepTags=@regressivo"
   },
   "devDependencies": {
     "@bahmutov/cypress-esbuild-preprocessor": "^2.2.4",
     "@shelex/cypress-allure-plugin": "^2.41.2",
     "cypress": "^14.5.4",
+    "cypress-junit-reporter": "^1.3.1",
+    "cypress-multi-reporters": "^2.0.5",
     "cypress-xpath": "^2.0.1",
+    "mocha-junit-reporter": "^2.2.1",
     "xlsx": "^0.18.5"
   },
   "dependencies": {

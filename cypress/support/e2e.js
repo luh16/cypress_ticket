@@ -64,13 +64,25 @@ afterEach(function () {
   const tituloTeste = this.currentTest.title.replace(/[:\/]/g, '-'); // Nome do teste formatado
   const screenshotFolder = `after-each/${tituloTeste}`;
 
-  // Screenshot sempre, falha ou sucesso
-  cy.screenshot(screenshotFolder, { capture: 'viewport' });
+  let lastScreenshotPath;
+  cy.screenshot(screenshotFolder, {
+    capture: 'runner',
+    onAfterScreenshot: (_el,props) => {
+      lastScreenshotPath = props.path; //caminho completo do screeshot
+    }
+  })
 
-  // Anexa no Allure se falhou
-  if (this.currentTest.state === 'failed') {
-    const specName = Cypress.spec.name;
-    const screenshotPath = `screenshots/${specName}/${screenshotFolder}.png`;
-    cy.allure().attachment('Screenshot on failure', screenshotPath, 'image/png');
-  }
+  cy.then(() => {
+    const label = this.currentTest.state === 'failed'
+    ? 'Screenshot on failure'
+    : 'Screenshot on pass';  
+
+    if (lastScreenshotPath) {
+      cy.allure().fileAttachment(label, lastScreenshotPath, 'image/png')
+    }
+
+  })
+
+
+  
 });

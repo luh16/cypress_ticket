@@ -10,6 +10,7 @@ const novaSolicitacaoPage = new NovaSolicitacaoPage()
 Given("que acesso o portal merchants hub Receivable", () => {
   cy.visit('/');
   //novaSolicitacaoPage.loginMicrosoft()
+  //cy.loginMicrosoft();
   menuPage.clickMenuReiceivable()
 });
 
@@ -27,9 +28,19 @@ When('preencho o campo Reembolso com o numero {string}', (numeroReembolso) => {
   novaSolicitacaoPage.preencherCampoReembolso(numeroReembolso)
 });
 
-When('clico no botão Criar nova solicitação', () => {
+When('preencho o campo Reembolso com o numero {string} com flag email desativada', (numeroReembolso) => {
+  novaSolicitacaoPage.preencherCampoReembolso(numeroReembolso)
+  novaSolicitacaoPage.ClickFlagEnviarPorEmail()
+  
+});
+
+When('gero nova solicitação com os dados do solicitante repassando o email', () => {
+
+  novaSolicitacaoPage.preencherDadosEnviarPorEmail()
   novaSolicitacaoPage.botaoCriarNovaSolicitacao()
 });
+
+
 
 
 Then('deve conter os campos Contrato, Reembolso, Período, Número do Protocolo, Nome do Solicitante, Email do Solicitante', () => {
@@ -43,7 +54,7 @@ Then('deve conter os campos Contrato, Reembolso, CNPJ, Período, Número do Prot
 
 
 Then('deve aparecer modal de sucesso', () => {
-  
+  novaSolicitacaoPage.modalDeSucesso()
 });
 
 

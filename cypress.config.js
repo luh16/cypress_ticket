@@ -12,6 +12,17 @@ const path = require('path');
 // ---------------------------------------------------------------
 
 module.exports = defineConfig({
+   reporter: 'cypress-multi-reporters',
+  reporterOptions: {
+    reporterEnabled: 'mocha-junit-reporter', 
+    mochaJunitReporterReporterOptions: {
+      mochaFile: 'cypress/results/results-[hash].xml',
+      
+      useTestAttributesForTestCaseIds: true,
+      testCaseIdAttributeName: "testcaseid",
+      testCaseIdRegex: /ID:\s*(\d+)/ 
+    }
+  },
   defaultCommandTimeout: 10000,
   e2e: {
   
@@ -90,7 +101,7 @@ module.exports = defineConfig({
     // Ajuste pra passar com historico do navegador
     modifyObstructiveCode: false,
     experimentalModifyObstructiveThirdPartyCode: true,
-    experimentalSessionAndOrigin: true, 
+    //experimentalSessionAndOrigin: true, 
     
     
   },

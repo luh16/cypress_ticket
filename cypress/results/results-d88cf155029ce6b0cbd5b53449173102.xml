@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="0.182" tests="1" failures="0" skipped="1">
+  <testsuite name="Root Suite" timestamp="2026-01-06T23:55:48" tests="0" file="cypress\e2e\api\features\request.feature" time="0.000" failures="0">
+  </testsuite>
+  <testsuite name="Validar cenario" timestamp="2026-01-06T23:55:48" tests="1" time="0.135" failures="0">
+  </testsuite>
+</testsuites>

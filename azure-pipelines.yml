@@ -20,7 +20,10 @@ stages:
               echo "Limpando arquivos anteriores"
               rm -rf "$(Build.SourcesDirectory)/cypress/screenshots"
               rm -rf "$(Build.SourcesDirectory)/results"
+              rm -rf $(Build.SourcesDirectory)/cypress/results
               rm -rf '$(Build.ArtifactStagingDirectory)/cypress/screenshots'
+              rm -rf "$(Build.SourcesDirectory)/allure-results"
+              rm -rf "$(Build.SourcesDirectory)/allure-report"
               rm -rf "$(Build.SourcesDirectory)/node_modules"
               rm -rf /root/.cache/Cypress || true
             displayName: 'Limpar arquivos anteriores'
@@ -28,7 +31,9 @@ stages:
 
           - script: |
               npm install
-            displayName: 'npm install'
+              # Instala o Allure CLI globalmente para gerar o report na pipeline
+              npm install -g allure-commandline
+            displayName: 'npm install + Allure CLI'
 
           - script: |
               # Dependências necessárias para rodar o Cypress em ambiente Linux (RHEL/CentOS)
@@ -50,8 +55,35 @@ stages:
             displayName: 'Diagnóstico de Rede'
 
           - script: |
-              npx cypress run
+              npx cypress run --env allure=true
             displayName: 'Executar Testes Regressivos'
+            continueOnError: true # Garante que o report seja gerado mesmo se testes falharem
+          # --- GERAÇÃO DO ALLURE REPORT ---
+          - script: |
+              echo "Gerando Allure Report..."
+              # O parâmetro --single-file (disponível em versões recentes do Allure) cria um HTML único
+              allure generate allure-results --clean -o allure-report
+            displayName: 'Gerar Allure Report'
+            condition: always()
+
+          # --- ZIP E PUBLICAÇÃO ---
+          - task: ArchiveFiles@2
+            displayName: 'Compactar Allure Report em ZIP'
+            condition: always()
+            inputs:
+              rootFolderOrFile: '$(Build.SourcesDirectory)/allure-results'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/allure-results-$(Build.BuildId).zip'
+              replaceExistingArchive: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Upload do ZIP para download'
+            condition: always()
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/allure-results-$(Build.BuildId).zip'
+              artifact: 'AllureResults_Download'
+              publishLocation: 'pipeline'
 
           - script: |
               npm run merge:results
@@ -63,5 +95,6 @@ stages:
             condition: succeededOrFailed()
             inputs:
               testResultsFormat: 'JUnit'
-              testResultsFiles: 'results/junit-merged.xml'
-              testRunTitle: 'Cypress SmokeTest'
+              testResultsFiles: '**/cypress/results/*.xml'
+              testRunTitle: 'Cypress Regressivo'
+              mergeTestResults: true # Consolida os arquivos em um único reporte no Azure
