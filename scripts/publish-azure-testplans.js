@@ -39,6 +39,13 @@ const ARGS = parseArgs();
 function getConfigVar(name) {
   return ARGS[name] || getEnv(name);
 }
+function getFirstVar(names) {
+  for (const n of names) {
+    const v = getConfigVar(n);
+    if (v !== undefined && v !== null && String(v).length > 0) return v;
+  }
+  return null;
+}
 
 const AZURE_ORG = getConfigVar('AZURE_ORG');
 const AZURE_PROJECT = getConfigVar('AZURE_PROJECT');
@@ -189,8 +196,9 @@ async function completeRun(runId) {
       return;
     }
 
-    const TEST_PLAN_ID = getConfigVar('TEST_PLAN_ID') ? parseInt(getConfigVar('TEST_PLAN_ID'), 10) : null;
-    const TEST_SUITE_IDS_RAW = getConfigVar('TEST_SUITE_IDS') || getConfigVar('TEST_SUITE_ID') || null;
+    const TEST_PLAN_ID_RAW = getFirstVar(['TEST_PLAN_ID','AZURE_TEST_PLAN_ID','azure_test_plan_id']);
+    const TEST_PLAN_ID = TEST_PLAN_ID_RAW ? parseInt(TEST_PLAN_ID_RAW, 10) : null;
+    const TEST_SUITE_IDS_RAW = getFirstVar(['TEST_SUITE_IDS','TEST_SUITE_ID','AZURE_TEST_SUITE_IDS','AZURE_TEST_SUITE_ID','azure_test_suite_ids','azure_test_suite_id']);
 
     if (TEST_PLAN_ID && TEST_SUITE_IDS_RAW) {
       const suiteIds = String(TEST_SUITE_IDS_RAW)
