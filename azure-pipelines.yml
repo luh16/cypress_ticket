@@ -98,6 +98,11 @@ stages:
               testResultsFiles: '**/cypress/results/combined.xml'
               testRunTitle: 'Cypress Regressivo'
               mergeTestResults: true # Consolida os arquivos em um único reporte no Azure
+          
+          - script: |
+              node -e "require('./cypress/support/pdfHelper').generateFromScreenshots({ environmentName: 'STG' })"
+            displayName: 'Gerar PDF de evidências'
+            condition: always()
           # Publicar resultados nos Test Plans (vínculo por Test Plan/Suite/Case via REST API)
           - script: |
               npm install axios fast-xml-parser

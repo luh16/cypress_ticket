@@ -3,9 +3,9 @@ Feature: Validar Nova solicitação
 Background:
     Given que acesso o portal merchants hub Receivable
 
-@teste @TestCaseID=286834
+@teste
 Scenario: CT1. Validar solicitação de extrato Simplificado em "Nova solicitação" ID: 286834
-    #When acessar menu 'Nova Solicitação'
+    When acessar menu 'Nova Solicitação'
     #And seleciono tipo de extrato 'Simplificado'
     #And preencho o campo Reembolso com o numero '132976563'
     #And gero nova solicitação com os dados do solicitante repassando o email

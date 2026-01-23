@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Cypress Artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/results/
+cypress/downloads/
+
+# Allure Reports
+allure-results/
+allure-report/
+
+# Logs and Debug
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables
+.env
+cypress.env.json
+
+# OS Generated Files
+.DS_Store
+Thumbs.db

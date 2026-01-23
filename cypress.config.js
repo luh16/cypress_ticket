@@ -74,6 +74,12 @@ module.exports = defineConfig({
           const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
           
           return jsonData;
+        },
+        ensureDir(dir) {
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          return null;
         }
       });
       // ------------------------------------------------------------------
@@ -95,8 +101,10 @@ module.exports = defineConfig({
 
     specPattern: "cypress/e2e/**/**/*.feature", 
     supportFile: "cypress/support/e2e.js",
-    baseUrl: "http://receivable-stg-merchants.ticket.edenred.net/",
+    baseUrl: "https://qa-practice.razvanvancea.ro/",
     chromeWebSecurity: false,
+    screenshotOnRunFailure: true, // Garante screenshots na falha (padrão é true no run, false no open)
+    trashAssetsBeforeRuns: true,
 
     // Ajuste pra passar com historico do navegador
     modifyObstructiveCode: false,
