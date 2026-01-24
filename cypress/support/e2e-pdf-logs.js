@@ -48,9 +48,16 @@ afterEach(function () {
   // Isso evita que o estado seja perdido ou alterado durante a execução dos comandos assíncronos
   const testState = this.currentTest.state;
   const testErr = this.currentTest.err;
-  const tituloTeste = this.currentTest.title.replace(/[:\/]/g, '-'); // Nome do teste formatado
 
   // Tira screenshot final manualmente SEMPRE (garante evidência do estado final)
+  // Sanitiza o nome do arquivo para evitar erros de sistema (Windows tem limites e caracteres proibidos)
+  const sanitizedTitle = this.currentTest.title
+      .replace(/[^a-z0-9\s-]/gi, '') // Remove caracteres especiais (mantém letras, números, espaços e hifens)
+      .trim()
+      .substring(0, 100); // Limita tamanho para evitar erro de path muito longo
+
+  const tituloTeste = sanitizedTitle.replace(/\s+/g, '-'); // Troca espaços por hifens para nome de arquivo seguro
+  
   cy.screenshot(`after-each/${tituloTeste}`, { capture: 'runner' });
 
   cy.then(() => {
