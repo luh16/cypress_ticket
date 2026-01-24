@@ -29,6 +29,10 @@ Cypress.Screenshot.defaults({
 
 // Hook final para consolidar evidências e gerar PDF
 afterEach(function () {
+  // Captura o estado IMEDIATAMENTE, antes de qualquer comando cy.*
+  // Isso evita que o estado seja perdido ou alterado durante a execução dos comandos assíncronos
+  const testState = this.currentTest.state;
+  const testErr = this.currentTest.err;
   const tituloTeste = this.currentTest.title.replace(/[:\/]/g, '-'); // Nome do teste formatado
 
   // Tira screenshot final manualmente SEMPRE (garante evidência do estado final)
@@ -39,8 +43,9 @@ afterEach(function () {
     const lastLog = logs && logs.length > 0 ? logs[logs.length - 1] : null;
     
     // Lógica robusta para determinar status final (prioriza falha)
-    let finalStatus = this.currentTest.state;
-    if (this.currentTest.err) {
+    // Usa as variáveis capturadas no início do hook
+    let finalStatus = testState;
+    if (testErr) {
         finalStatus = 'failed';
     }
 
