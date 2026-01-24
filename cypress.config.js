@@ -41,7 +41,7 @@ module.exports = defineConfig({
       // --- ACUMULADOR DE EVIDÊNCIAS ---
       let allTestEvidences = [];
 
-      on('after:run', (results) => {
+      on('after:run', async (results) => {
           if (allTestEvidences.length > 0) {
               console.log('>>> GERANDO PDF CONSOLIDADO PARA', allTestEvidences.length, 'TESTES <<<');
               
@@ -54,13 +54,17 @@ module.exports = defineConfig({
                   fs.mkdirSync(dir, { recursive: true });
               }
 
-              generatePdf({
-                  outputFile: outputFile,
-                  tests: allTestEvidences,
-                  companyName: 'TICKET | EDENRED',
-                  environmentName: 'QA'
-              });
-              console.log('PDF Consolidado gerado com sucesso:', outputFile);
+              try {
+                  await generatePdf({
+                      outputFile: outputFile,
+                      tests: allTestEvidences,
+                      companyName: 'TICKET | EDENRED',
+                      environmentName: 'QA'
+                  });
+                  console.log('PDF Consolidado gerado com sucesso:', outputFile);
+              } catch (error) {
+                  console.error('Erro ao gerar PDF Consolidado:', error);
+              }
           } else {
               console.log('Nenhuma evidência acumulada para gerar PDF.');
           }
