@@ -3,145 +3,75 @@ const createBundler = require("@bahmutov/cypress-esbuild-preprocessor");
 const { addCucumberPreprocessorPlugin } = require("@badeball/cypress-cucumber-preprocessor");
 const { createEsbuildPlugin } = require("@badeball/cypress-cucumber-preprocessor/esbuild");
 const allureWriter = require('@shelex/cypress-allure-plugin/writer');
-
-// ---------- Imports para PDF e Excel --------
+const { generatePdf } = require('./cypress/support/pdfHelper');
 const fs = require('fs');
-const xlsx = require('xlsx');
 const path = require('path');
-// --- PDF: COPIAR ESTE REQUIRE ---
-const { generatePdf } = require('./cypress/support/pdfHelper'); 
-// --------------------------------
 
 module.exports = defineConfig({
-   reporter: 'cypress-multi-reporters',
+  reporter: 'cypress-multi-reporters',
   reporterOptions: {
     reporterEnabled: 'mocha-junit-reporter', 
     mochaJunitReporterReporterOptions: {
-      mochaFile: 'cypress/results/results-[hash].xml',
-      useTestAttributesForTestCaseIds: true,
-      testCaseIdAttributeName: "testcaseid",
-      testCaseIdRegex: /ID:\s*(\d+)/ 
+      mochaFile: 'cypress/results/results-[hash].xml'
     }
   },
   defaultCommandTimeout: 10000,
   e2e: {
     async setupNodeEvents(on, config) {
-      // ✅ configura o preprocessor
       const bundler = createBundler({
         plugins: [createEsbuildPlugin(config)],
       });
       on("file:preprocessor", bundler);
-
-      // ✅ ativa cucumber
       await addCucumberPreprocessorPlugin(on, config);
-
-      // ✅ ativa allure
       allureWriter(on, config);
 
       // --- ACUMULADOR DE EVIDÊNCIAS ---
-      let allTestEvidences = [];
+      let evidences = [];
 
-      on('after:run', async (results) => {
-          if (allTestEvidences.length > 0) {
-              console.log('>>> GERANDO PDF CONSOLIDADO PARA', allTestEvidences.length, 'TESTES <<<');
-              
-              const date = new Date();
-              const dataFormatada = date.toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
-              const outputFile = `cypress/evidence/Relatorio_Final_${dataFormatada}.pdf`;
-              
-              const dir = path.dirname(outputFile);
-              if (!fs.existsSync(dir)) {
-                  fs.mkdirSync(dir, { recursive: true });
-              }
-
-              try {
-                  await generatePdf({
-                      outputFile: outputFile,
-                      tests: allTestEvidences,
-                      companyName: 'TICKET | EDENRED',
-                      environmentName: 'QA'
-                  });
-                  console.log('PDF Consolidado gerado com sucesso:', outputFile);
-              } catch (error) {
-                  console.error('Erro ao gerar PDF Consolidado:', error);
-              }
-          } else {
-              console.log('Nenhuma evidência acumulada para gerar PDF.');
-          }
+      on('task', {
+        // Recebe os dados de CADA teste e guarda na memória
+        accumulateEvidence(data) {
+          console.log(`[Evidence] Recebido: ${data.title}`);
+          evidences.push(data);
+          return null;
+        },
+        
+        // Tasks utilitárias (mantidas para compatibilidade)
+        clearDownloads() { return null; },
+        readExcelFile() { return null; },
+        ensureDir() { return null; },
+        generatePdfTask() { return null; } // Placeholder para não quebrar se alguém chamar
       });
 
-      // --- ADICIONA AS TAREFAS (Tasks) ---
-      on('task', {
-        accumulateEvidence(testData) {
-            console.log('Acumulando evidência para:', testData.title);
-            allTestEvidences.push(testData);
-            return null;
-        },
-
-        // --- PDF: COPIAR ESTA TASK ---
-        generatePdfTask(options) {
-            console.log('TASK generatePdfTask CHAMADA:', options.outputFile);
-            try {
-                const dir = path.dirname(options.outputFile);
-                if (!fs.existsSync(dir)) {
-                    console.log('Criando diretório:', dir);
-                    fs.mkdirSync(dir, { recursive: true });
-                }
-                generatePdf(options);
-                console.log('PDF gerado com sucesso via task.');
-            } catch (err) {
-                console.error('ERRO AO GERAR PDF NA TASK:', err);
-            }
-            return null;
-        },
-        // -----------------------------
-
-        clearDownloads() {
-          console.log('Limpando a pasta de downloads...');
-          const downloadsFolder = config.downloadsFolder;
-          if (fs.existsSync(downloadsFolder)) {
-              fs.readdirSync(downloadsFolder).forEach(file => {
-                const filePath = path.join(downloadsFolder, file);
-                fs.unlinkSync(filePath);
-              });
-          }
-          return null;
-        },
-        readExcelFile() {
-          const downloadsFolder = config.downloadsFolder;
-          const files = fs.readdirSync(downloadsFolder);
-          const excelFiles = files.filter(file => file.endsWith('.xlsx') || file.endsWith('.xls'));
-
-          if (excelFiles.length === 0) {
-            throw new Error("Nenhum arquivo Excel encontrado na pasta de downloads.");
-          }
-
-          const filePath = path.join(downloadsFolder, excelFiles[0]); 
-          console.log(`Lendo o arquivo: ${filePath}`);
-
-          const workbook = xlsx.readFile(filePath);
-          const jsonData = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      // --- GERA O PDF FINAL QUANDO TUDO ACABAR ---
+      on('after:run', async () => {
+        if (evidences.length > 0) {
+          console.log('>>> GERANDO RELATÓRIO PDF FINAL <<<');
+          const fileName = `cypress/evidence/Relatorio_Final_${Date.now()}.pdf`;
           
-          return jsonData;
-        },
-        ensureDir(dir) {
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+          // Garante pasta
+          const dir = path.dirname(fileName);
+          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+          try {
+            await generatePdf(evidences, fileName);
+            console.log(`PDF GERADO: ${fileName}`);
+          } catch (err) {
+            console.error('ERRO AO GERAR PDF:', err);
           }
-          return null;
+        } else {
+          console.log('Nenhuma evidência para gerar PDF.');
         }
       });
-      // ------------------------------------------------------------------
 
       return config;
     },
 
-   env: {
-    //variaveis que vão subir na pipe
-   tags: "@teste", 
-   allure: true,
-   allureReuseAfterSpec: true,
-   API_BASE_URL: "https://postman-echo.com"
-   },
- }
+    env: {
+      tags: "@teste", 
+      allure: true,
+      allureReuseAfterSpec: true,
+      API_BASE_URL: "https://postman-echo.com"
+    },
+  }
 });
