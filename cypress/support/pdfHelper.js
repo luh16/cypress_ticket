@@ -61,13 +61,16 @@ function generatePdf(options = {}) {
       doc.font('Helvetica-Bold').fontSize(12).fillColor('#000')
          .text(`${index + 1}. ${step.step}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
       
-      y += 20
+      y += 40 // Aumentei o espaçamento de 20 para 40
       
+      // Status (destaque apenas no texto do status)
       const isFailure = String(step.status).toLowerCase().includes('fail');
-      doc.font('Helvetica').fontSize(10).fillColor(isFailure ? '#d32f2f' : '#666')
-         .text(`Status: ${step.status.toUpperCase()}`, pageMargin, y)
+      const statusText = isFailure ? 'FAILED' : 'PASSED';
       
-      y += 20
+      doc.font('Helvetica-Bold').fontSize(12).fillColor(isFailure ? '#d32f2f' : '#2e7d32')
+         .text(`Status: ${statusText}`, pageMargin, y)
+      
+      y += 30 // Aumentei o espaçamento antes da imagem de 20 para 30
       
       if (step.screenshot && fs.existsSync(step.screenshot)) {
          try {

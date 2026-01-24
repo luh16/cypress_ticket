@@ -37,14 +37,28 @@ afterEach(function () {
   cy.then(() => {
     const logs = stepLogs[this.currentTest.title];
     const lastLog = logs && logs.length > 0 ? logs[logs.length - 1] : null;
+    
+    // Lógica robusta para determinar status final (prioriza falha)
+    let finalStatus = this.currentTest.state;
+    if (this.currentTest.err) {
+        finalStatus = 'failed';
+    }
 
-    if (lastLog && lastLog.screenshot) {
+    if (lastLog) {
+        // Atualiza o último log com o título do teste
         lastLog.step = this.currentTest.title;
-        lastLog.status = this.currentTest.state;
+        
+        // Se o status final for falha OU o log já indicava falha, mantém como failed
+        if (finalStatus === 'failed' || lastLog.status === 'failed') {
+            lastLog.status = 'failed';
+        } else {
+            lastLog.status = finalStatus;
+        }
     } else if (logs) {
+        // Se não houve logs anteriores, cria um novo
         logs.push({
             step: this.currentTest.title,
-            status: this.currentTest.state, 
+            status: finalStatus, 
             screenshot: null,
             timestamp: new Date().toISOString()
         });
