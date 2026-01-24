@@ -88,8 +88,10 @@ afterEach(function () {
         });
     }
 
-    // Só gera o PDF se a variável de ambiente estiver ativa
-    if (Cypress.env('GENERATE_PDF')) {
+    // Gera o PDF (removido check de env var para garantir execução no teste manual)
+    // if (Cypress.env('GENERATE_PDF')) { <--- Descomente para produção
+    if (true) { 
+        cy.log('Gerando PDF de evidências...');
         const pdfDir = 'cypress/evidence';
         const pdfName = `${tituloTeste}.pdf`;
         const pdfPath = `${pdfDir}/${pdfName}`;
