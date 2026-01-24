@@ -9,9 +9,9 @@ async function generatePdf(testResults, outputPath) {
       doc.pipe(stream);
 
       // --- CABEÇALHO ---
-      doc.fontSize(16).text('Relatório de Execução de Testes', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(10).text(`Data: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc.fontSize(14).text('Nome da Empresa', { align: 'left' });
+      doc.fontSize(12).text('QA Automação', { align: 'left' });
+      doc.fontSize(10).text(`Data: ${new Date().toLocaleString()}`, { align: 'left' });
       doc.moveDown(2);
 
       // --- LOOP PELOS TESTES ---
@@ -21,42 +21,38 @@ async function generatePdf(testResults, outputPath) {
 
         // Título do Teste
         doc.fontSize(12).font('Helvetica-Bold')
-           .text(`Teste ${index + 1}: ${test.title}`);
+           .text(`CT: ${test.title}`);
         
         // Status
         const statusColor = test.status === 'failed' ? '#FF0000' : '#008000';
         doc.fontSize(10).font('Helvetica')
            .fillColor(statusColor)
-           .text(`Status Final: ${test.status.toUpperCase()}`);
+           .text(`Status: ${test.status.toUpperCase()}`);
         
         doc.fillColor('black').moveDown(0.5);
 
         // Steps e Evidências
         if (test.steps && test.steps.length > 0) {
           test.steps.forEach(step => {
-            // Verifica quebra de página
-            if (doc.y > 750) doc.addPage();
-
-            // Texto do passo
-            doc.text(`- ${step.step}`);
-
-            // Se tiver screenshot
+            // Filtra para mostrar APENAS screenshots, ignorando erros de texto e logs
             if (step.screenshot && fs.existsSync(step.screenshot)) {
-               // Verifica espaço para imagem
+               // Verifica quebra de página
                if (doc.y > 600) doc.addPage();
                
                try {
-                 doc.moveDown(0.5);
+                 // Texto sobre o screenshot (substituindo "Screenshot Capturado")
+                 doc.font('Helvetica').fontSize(9).text(`${test.title} - Status: ${test.status.toUpperCase()}`, { align: 'center' });
+
+                 doc.moveDown(0.2);
                  doc.image(step.screenshot, { 
-                   fit: [400, 200], 
+                   fit: [450, 250], 
                    align: 'center' 
                  });
-                 doc.moveDown(0.5);
+                 doc.moveDown(1);
                } catch (err) {
-                 doc.text(`[Erro ao carregar imagem: ${err.message}]`, { color: 'red' });
+                 doc.text(`[Erro ao carregar imagem]`, { color: 'red' });
                }
             }
-            doc.moveDown(0.5);
           });
         }
         
