@@ -75,17 +75,13 @@ afterEach(function () {
     if (logs && logs.length > 0) {
         const lastIndex = logs.length - 1;
         if (finalStatus === 'failed') {
-            logs[lastIndex].status = 'failed';
-            // Adiciona indicador visual no texto do passo também
-            if (!logs[lastIndex].step.includes('Falha')) {
-                logs[lastIndex].step = `[FALHA] ${logs[lastIndex].step}`;
-            }
-        } else {
-            // Se passou, apenas atualiza o nome do passo se necessário
-            if (logs[lastIndex].step === 'Screenshot Capturado') {
-                 logs[lastIndex].step = this.currentTest.title;
-            }
-        }
+             logs[lastIndex].status = 'failed';
+         } else {
+             // Se passou, apenas atualiza o nome do passo se necessário
+             if (logs[lastIndex].step === 'Screenshot Capturado') {
+                  logs[lastIndex].step = this.currentTest.title;
+             }
+         }
     } else if (logs) {
         // Se não houve logs anteriores, cria um novo
         logs.push({
