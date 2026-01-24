@@ -49,15 +49,20 @@ afterEach(function () {
         finalStatus = 'failed';
     }
 
-    if (lastLog) {
-        // Atualiza o último log com o título do teste
-        lastLog.step = this.currentTest.title;
-        
-        // Se o status final for falha OU o log já indicava falha, mantém como failed
-        if (finalStatus === 'failed' || lastLog.status === 'failed') {
-            lastLog.status = 'failed';
+    // Se o teste falhou, garante que o último log reflita isso
+    if (logs && logs.length > 0) {
+        const lastIndex = logs.length - 1;
+        if (finalStatus === 'failed') {
+            logs[lastIndex].status = 'failed';
+            // Adiciona indicador visual no texto do passo também
+            if (!logs[lastIndex].step.includes('Falha')) {
+                logs[lastIndex].step = `[FALHA] ${logs[lastIndex].step}`;
+            }
         } else {
-            lastLog.status = finalStatus;
+            // Se passou, apenas atualiza o nome do passo se necessário
+            if (logs[lastIndex].step === 'Screenshot Capturado') {
+                 logs[lastIndex].step = this.currentTest.title;
+            }
         }
     } else if (logs) {
         // Se não houve logs anteriores, cria um novo
