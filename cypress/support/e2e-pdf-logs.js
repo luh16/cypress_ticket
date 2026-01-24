@@ -10,6 +10,20 @@ beforeEach(function() {
   stepLogs[testTitle] = [];
 });
 
+// Listener explícito para falhas do Cypress (GARANTE captura de erro)
+Cypress.on('fail', (err, runnable) => {
+    const testTitle = runnable.title;
+    if (stepLogs[testTitle]) {
+        stepLogs[testTitle].push({
+            step: `ERRO: ${err.message}`,
+            status: 'failed',
+            screenshot: null,
+            timestamp: new Date().toISOString()
+        });
+    }
+    throw err; // Re-lança o erro para o Cypress falhar o teste normalmente
+});
+
 // Listener global para capturar screenshots
 Cypress.Screenshot.defaults({
   capture: 'runner',
