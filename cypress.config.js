@@ -38,8 +38,42 @@ module.exports = defineConfig({
       // ✅ ativa allure
       allureWriter(on, config);
 
+      // --- ACUMULADOR DE EVIDÊNCIAS ---
+      let allTestEvidences = [];
+
+      on('after:run', (results) => {
+          if (allTestEvidences.length > 0) {
+              console.log('>>> GERANDO PDF CONSOLIDADO PARA', allTestEvidences.length, 'TESTES <<<');
+              
+              const date = new Date();
+              const dataFormatada = date.toISOString().replace(/T/, '_').replace(/\..+/, '').replace(/:/g, '-');
+              const outputFile = `cypress/evidence/Relatorio_Final_${dataFormatada}.pdf`;
+              
+              const dir = path.dirname(outputFile);
+              if (!fs.existsSync(dir)) {
+                  fs.mkdirSync(dir, { recursive: true });
+              }
+
+              generatePdf({
+                  outputFile: outputFile,
+                  tests: allTestEvidences,
+                  companyName: 'TICKET | EDENRED',
+                  environmentName: 'QA'
+              });
+              console.log('PDF Consolidado gerado com sucesso:', outputFile);
+          } else {
+              console.log('Nenhuma evidência acumulada para gerar PDF.');
+          }
+      });
+
       // --- ADICIONA AS TAREFAS (Tasks) ---
       on('task', {
+        accumulateEvidence(testData) {
+            console.log('Acumulando evidência para:', testData.title);
+            allTestEvidences.push(testData);
+            return null;
+        },
+
         // --- PDF: COPIAR ESTA TASK ---
         generatePdfTask(options) {
             console.log('TASK generatePdfTask CHAMADA:', options.outputFile);

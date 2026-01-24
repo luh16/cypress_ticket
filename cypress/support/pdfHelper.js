@@ -51,34 +51,75 @@ function generatePdf(options = {}) {
   // --- STEPS ---
   let y = lineY + 30
   
-  if (steps.length > 0) {
-    steps.forEach((step, index) => {
-      if (y > 750) {
-        doc.addPage({ size: 'A4', margin: 50 })
-        y = 50
-      }
+  // Normaliza entrada: se tiver options.tests (lista de testes), usa.
+  // Se tiver apenas options.steps (um único teste legado), converte para lista de 1 teste.
+  let testsToPrint = [];
+  if (options.tests && Array.isArray(options.tests)) {
+    testsToPrint = options.tests;
+  } else if (options.steps && Array.isArray(options.steps)) {
+    testsToPrint = [{ title: 'Execução do Teste', steps: options.steps }];
+  }
 
-      doc.font('Helvetica-Bold').fontSize(12).fillColor('#000')
-         .text(`${index + 1}. ${step.step}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
-      
-      y += 40 // Aumentei o espaçamento de 20 para 40
-      
-      // Status (destaque apenas no texto do status)
-      const isFailure = String(step.status).toLowerCase().includes('fail');
-      const statusText = isFailure ? 'FAILED' : 'PASSED';
-      
-      doc.font('Helvetica-Bold').fontSize(12).fillColor(isFailure ? '#d32f2f' : '#2e7d32')
-         .text(`Status: ${statusText}`, pageMargin, y)
-      
-      y += 30 // Aumentei o espaçamento antes da imagem de 20 para 30
-      
-      if (step.screenshot && fs.existsSync(step.screenshot)) {
-         try {
-           doc.image(step.screenshot, pageMargin, y, { width: 480 })
-           y += 300
-         } catch(e) { }
-      }
-      y += 30
+  if (testsToPrint.length > 0) {
+    testsToPrint.forEach((testItem, tIndex) => {
+        // Quebra de página se não couber o título
+        if (y > 700) {
+            doc.addPage({ size: 'A4', margin: 50 })
+            y = 50
+        }
+
+        // Título do Teste (se houver mais de um ou se tiver título definido)
+        if (testItem.title) {
+            doc.font('Helvetica-Bold').fontSize(14).fillColor('#0056b3')
+               .text(`Caso de Teste ${tIndex + 1}: ${testItem.title}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
+            y += 25
+            
+            // Linha separadora fina abaixo do título
+            doc.strokeColor('#eee').lineWidth(1)
+               .moveTo(pageMargin, y).lineTo(pageWidth - pageMargin, y).stroke()
+            y += 15
+        }
+
+        const steps = testItem.steps || [];
+        steps.forEach((step, index) => {
+            if (y > 750) {
+                doc.addPage({ size: 'A4', margin: 50 })
+                y = 50
+            }
+
+            doc.font('Helvetica-Bold').fontSize(12).fillColor('#000')
+               .text(`${index + 1}. ${step.step}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
+            
+            y += 40 
+            
+            // Status
+            const isFailure = String(step.status).toLowerCase().includes('fail');
+            const statusText = isFailure ? 'FAILED' : 'PASSED';
+            
+            doc.font('Helvetica-Bold').fontSize(12).fillColor(isFailure ? '#d32f2f' : '#2e7d32')
+               .text(`Status: ${statusText}`, pageMargin, y)
+            
+            y += 30 
+            
+            if (step.screenshot && fs.existsSync(step.screenshot)) {
+                try {
+                // Verifica espaço para imagem
+                if (y + 300 > 800) {
+                    doc.addPage({ size: 'A4', margin: 50 })
+                    y = 50
+                }
+                doc.image(step.screenshot, pageMargin, y, { width: 480 })
+                y += 300
+                } catch(e) { }
+            }
+            y += 30
+        })
+
+        // Espaço entre testes
+        y += 20;
+        doc.strokeColor('#000').lineWidth(2)
+           .moveTo(pageMargin, y).lineTo(pageWidth - pageMargin, y).stroke()
+        y += 40;
     })
   }
 

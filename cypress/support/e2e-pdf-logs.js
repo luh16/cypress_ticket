@@ -50,15 +50,19 @@ afterEach(function () {
   const testErr = this.currentTest.err;
 
   // Tira screenshot final manualmente SEMPRE (garante evidência do estado final)
-  // Sanitiza o nome do arquivo para evitar erros de sistema (Windows tem limites e caracteres proibidos)
-  const sanitizedTitle = this.currentTest.title
-      .replace(/[^a-z0-9\s-]/gi, '') // Remove caracteres especiais (mantém letras, números, espaços e hifens)
-      .trim()
-      .substring(0, 100); // Limita tamanho para evitar erro de path muito longo
-
-  const tituloTeste = sanitizedTitle.replace(/\s+/g, '-'); // Troca espaços por hifens para nome de arquivo seguro
   
-  cy.screenshot(`after-each/${tituloTeste}`, { capture: 'runner' });
+  // Gera nome curto baseado em data e hora para evitar erros de caracteres e tamanho
+  const now = new Date();
+  const dataFormatada = now.getFullYear() + '-' + 
+                        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(now.getDate()).padStart(2, '0') + '_' + 
+                        String(now.getHours()).padStart(2, '0') + '-' + 
+                        String(now.getMinutes()).padStart(2, '0') + '-' + 
+                        String(now.getSeconds()).padStart(2, '0');
+  
+  // Sanitiza o título apenas para o screenshot (pasta)
+  const sanitizedTitle = this.currentTest.title.replace(/[^a-z0-9\s-]/gi, '').trim().substring(0, 50).replace(/\s+/g, '-');
+  cy.screenshot(`after-each/${sanitizedTitle}`, { capture: 'runner' });
 
   cy.then(() => {
     const logs = stepLogs[this.currentTest.title];
@@ -92,25 +96,18 @@ afterEach(function () {
         });
     }
 
-    // Gera o PDF (removido check de env var para garantir execução no teste manual)
+    // Acumula evidência para geração posterior (consolidação)
     // if (Cypress.env('GENERATE_PDF')) { <--- Descomente para produção
-    if (true) { 
-        cy.log('Gerando PDF de evidências...');
-        const pdfDir = 'cypress/evidence';
-        const pdfName = `${tituloTeste}.pdf`;
-        const pdfPath = `${pdfDir}/${pdfName}`;
-
-        const options = {
-            outputFile: pdfPath,
+    if (true) {
+        cy.log('Acumulando evidência do teste...');
+        
+        const evidenceData = {
+            title: this.currentTest.title,
             steps: stepLogs[this.currentTest.title] || [],
-            companyName: 'TICKET | EDENRED',
-            environmentName: 'QA', 
-            qaName: 'QA Automation',
-            device: 'Web',
-            date: new Date().toLocaleString()
+            status: finalStatus
         };
         
-        cy.task('generatePdfTask', options);
+        cy.task('accumulateEvidence', evidenceData);
     }
   });
 });
