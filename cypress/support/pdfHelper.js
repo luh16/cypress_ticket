@@ -48,11 +48,10 @@ function generatePdf(options = {}) {
      .lineTo(pageWidth - pageMargin, lineY)
      .stroke()
   
-  // --- STEPS ---
+  // --- STEPS (Suporte a múltiplos testes) ---
   let y = lineY + 30
   
-  // Normaliza entrada: se tiver options.tests (lista de testes), usa.
-  // Se tiver apenas options.steps (um único teste legado), converte para lista de 1 teste.
+  // Normaliza entrada
   let testsToPrint = [];
   if (options.tests && Array.isArray(options.tests)) {
     testsToPrint = options.tests;
@@ -62,19 +61,21 @@ function generatePdf(options = {}) {
 
   if (testsToPrint.length > 0) {
     testsToPrint.forEach((testItem, tIndex) => {
-        // Quebra de página se não couber o título
-        if (y > 700) {
+        // Verifica se cabe o título (precisa de uns 60pts)
+        if (y > 750) {
             doc.addPage({ size: 'A4', margin: 50 })
             y = 50
         }
 
-        // Título do Teste (se houver mais de um ou se tiver título definido)
+        // Título do Teste
         if (testItem.title) {
             doc.font('Helvetica-Bold').fontSize(14).fillColor('#0056b3')
                .text(`Caso de Teste ${tIndex + 1}: ${testItem.title}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
-            y += 25
             
-            // Linha separadora fina abaixo do título
+            // Atualiza y baseado na altura do texto escrito (pode quebrar linha)
+            y = doc.y + 5;
+            
+            // Linha separadora
             doc.strokeColor('#eee').lineWidth(1)
                .moveTo(pageMargin, y).lineTo(pageWidth - pageMargin, y).stroke()
             y += 15
@@ -82,15 +83,17 @@ function generatePdf(options = {}) {
 
         const steps = testItem.steps || [];
         steps.forEach((step, index) => {
-            if (y > 750) {
+            // Verifica espaço para o texto do passo
+            if (y > 780) {
                 doc.addPage({ size: 'A4', margin: 50 })
                 y = 50
             }
 
+            // Passo
             doc.font('Helvetica-Bold').fontSize(12).fillColor('#000')
                .text(`${index + 1}. ${step.step}`, pageMargin, y, { width: pageWidth - (pageMargin * 2) })
             
-            y += 40 
+            y = doc.y + 10; // Pega o Y real após o texto
             
             // Status
             const isFailure = String(step.status).toLowerCase().includes('fail');
@@ -99,20 +102,31 @@ function generatePdf(options = {}) {
             doc.font('Helvetica-Bold').fontSize(12).fillColor(isFailure ? '#d32f2f' : '#2e7d32')
                .text(`Status: ${statusText}`, pageMargin, y)
             
-            y += 30 
-            
+            y = doc.y + 10;
+
+            // Screenshot
             if (step.screenshot && fs.existsSync(step.screenshot)) {
                 try {
-                // Verifica espaço para imagem
-                if (y + 300 > 800) {
-                    doc.addPage({ size: 'A4', margin: 50 })
-                    y = 50
+                    // Espaço disponível na página
+                    const spaceLeft = 800 - y;
+                    const imgHeight = 250; // Altura fixa estimada para a imagem redimensionada
+
+                    if (spaceLeft < imgHeight) {
+                        doc.addPage({ size: 'A4', margin: 50 })
+                        y = 50
+                    }
+
+                    // Desenha imagem centralizada ou ajustada
+                    // fit: [largura, altura] garante que não distorça
+                    doc.image(step.screenshot, pageMargin, y, { fit: [480, 250], align: 'center' })
+                    
+                    // Incrementa Y baseado na altura reservada (ou poderíamos tentar medir)
+                    y += 260 
+                } catch(e) { 
+                    console.error('Erro ao inserir imagem:', e);
                 }
-                doc.image(step.screenshot, pageMargin, y, { width: 480 })
-                y += 300
-                } catch(e) { }
             }
-            y += 30
+            y += 20 // Espaço entre passos
         })
 
         // Espaço entre testes
