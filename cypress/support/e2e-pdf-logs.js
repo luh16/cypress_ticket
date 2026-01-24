@@ -1,5 +1,6 @@
 // --- LOGICA DE GERAÇÃO DE PDF E EVIDENCIAS ---
 // Importa este arquivo no cypress/support/e2e.js para ativar a geração automática
+console.log('>>> ARQUIVO E2E-PDF-LOGS.JS CARREGADO COM SUCESSO <<<');
 
 // Variável global para armazenar os logs dos steps
 const stepLogs = {};

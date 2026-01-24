@@ -42,11 +42,18 @@ module.exports = defineConfig({
       on('task', {
         // --- PDF: COPIAR ESTA TASK ---
         generatePdfTask(options) {
-            const dir = path.dirname(options.outputFile);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
+            console.log('TASK generatePdfTask CHAMADA:', options.outputFile);
+            try {
+                const dir = path.dirname(options.outputFile);
+                if (!fs.existsSync(dir)) {
+                    console.log('Criando diretório:', dir);
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                generatePdf(options);
+                console.log('PDF gerado com sucesso via task.');
+            } catch (err) {
+                console.error('ERRO AO GERAR PDF NA TASK:', err);
             }
-            generatePdf(options);
             return null;
         },
         // -----------------------------
