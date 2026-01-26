@@ -4,115 +4,91 @@ const fs = require('fs');
 async function generatePdf(testResults, outputPath) {
   return new Promise((resolve, reject) => {
     try {
-      // Cores da Ticket / Edenred
-      const COLOR_PRIMARY = '#E4002B'; // Vermelho Ticket
-      const COLOR_SECONDARY = '#333333'; // Cinza Escuro
-      const COLOR_TEXT = '#555555'; // Cinza Texto
-      const COLOR_PASSED = '#28a745'; // Verde Sucesso
-      const COLOR_FAILED = '#dc3545'; // Vermelho Falha
-
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       const stream = fs.createWriteStream(outputPath);
       doc.pipe(stream);
 
-      // --- BARRA SUPERIOR DECORATIVA ---
-      doc.rect(0, 0, 600, 20).fill(COLOR_PRIMARY);
+      // --- FAIXA VERMELHA NO TOPO (Ticket Edenred) ---
+      doc.rect(0, 0, 600, 20).fill('#E4002B'); 
 
-      // --- CABEÇALHO ---
-      // Logo (Lado Direito Superior)
-      const logoPath = 'cypress/fixtures/logo.png'; 
+      // --- LOGO (Canto Direito) ---
+      const logoPath = 'cypress/fixtures/logo.png';
       if (fs.existsSync(logoPath)) {
-          try {
-              doc.image(logoPath, 450, 40, { fit: [100, 50], align: 'right' });
-          } catch (e) {
-              console.log('Erro ao carregar logo:', e.message);
-          }
+        try {
+          doc.image(logoPath, 450, 40, { fit: [100, 50], align: 'right' });
+        } catch (e) { }
       }
 
-      // Título e Informações (Lado Esquerdo)
-      doc.fillColor(COLOR_PRIMARY).fontSize(20).font('Helvetica-Bold')
-         .text('Relatório de Testes Automatizados', 50, 50, { align: 'left' });
+      // --- CABEÇALHO (Esquerda) ---
+      doc.fillColor('black').fontSize(14).font('Helvetica-Bold')
+         .text('Nome da Empresa', 50, 50, { align: 'left' });
       
-      doc.moveDown(0.5);
-      doc.fillColor(COLOR_SECONDARY).fontSize(10).font('Helvetica')
-         .text('Projeto: QA Automação | Ticket Edenred', { align: 'left' });
+      doc.fontSize(12).font('Helvetica')
+         .text('QA Automação', 50, 70, { align: 'left' });
       
-      doc.text(`Data da Execução: ${new Date().toLocaleString()}`, { align: 'left' });
-      
-      doc.moveDown(2);
-      
-      // Linha divisória elegante
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#dddddd').lineWidth(1).stroke();
-      doc.moveDown(2);
+      doc.fontSize(10).fillColor('#555555')
+         .text(`Data: ${new Date().toLocaleString()}`, 50, 90, { align: 'left' });
 
-      // --- LOOP PELOS TESTES ---
+      doc.y = 130; // Garante espaço após cabeçalho
+      doc.moveDown();
+
+      // --- LOOP DOS TESTES ---
       testResults.forEach((test, index) => {
-        // Nova página se estiver muito no final
-        if (doc.y > 700) doc.addPage();
+        // Quebra de página se necessário
+        if (doc.y > 700) {
+          doc.addPage();
+          doc.rect(0, 0, 600, 20).fill('#E4002B'); // Repete a faixa na nova página
+          doc.fillColor('black'); // Reseta a cor
+          doc.moveDown(2);
+        }
 
-        // Caixa de Fundo do Título do Teste
-        const startY = doc.y;
-        doc.rect(50, startY - 5, 500, 25).fillAndStroke('#f8f9fa', '#eeeeee');
+        // Título do CT
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('black')
+           .text(`CT: ${test.title}`);
         
-        // Título do Teste
-        doc.fillColor(COLOR_SECONDARY).fontSize(12).font('Helvetica-Bold')
-           .text(`CT ${index + 1}: ${test.title}`, 60, startY + 2);
+        // Status
+        const statusColor = test.status === 'failed' ? '#E4002B' : '#28a745'; // Vermelho Ticket ou Verde
+        doc.fontSize(10).font('Helvetica').fillColor(statusColor)
+           .text(`Status: ${test.status.toUpperCase()}`);
+        
+        doc.fillColor('black').moveDown(0.5);
 
-        // Badge de Status (Lado Direito do Título)
-        const statusText = test.status.toUpperCase();
-        const statusColor = test.status === 'failed' ? COLOR_FAILED : COLOR_PASSED;
-        
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(statusColor)
-           .text(statusText, 480, startY + 2, { align: 'right', width: 60 });
-        
-        doc.moveDown(2);
-
-        // Steps e Evidências
+        // Evidências
         if (test.steps && test.steps.length > 0) {
           test.steps.forEach(step => {
-            // Filtra para mostrar APENAS screenshots
             if (step.screenshot && fs.existsSync(step.screenshot)) {
-               // Verifica quebra de página
-               if (doc.y > 600) doc.addPage();
+               // Verifica espaço
+               if (doc.y > 600) {
+                 doc.addPage();
+                 doc.rect(0, 0, 600, 20).fill('#E4002B');
+                 doc.fillColor('black');
+                 doc.moveDown(2);
+               }
                
                try {
-                 // Moldura da Imagem
-                 doc.rect(70, doc.y, 455, 255).strokeColor('#dddddd').lineWidth(1).stroke();
+                 // Legenda simples
+                 doc.font('Helvetica').fontSize(9).fillColor('#555555')
+                    .text(`${test.title} - ${test.status.toUpperCase()}`, { align: 'center' });
+                 
+                 doc.moveDown(0.2);
                  
                  // Imagem
-                 doc.image(step.screenshot, 72, doc.y + 2, { 
+                 doc.image(step.screenshot, { 
                    fit: [450, 250], 
                    align: 'center' 
                  });
-
-                 // Legenda da Imagem
-                 doc.y += 260;
-                 doc.fillColor(COLOR_TEXT).fontSize(8).font('Helvetica')
-                    .text(`Evidência: ${test.title} | Status: ${statusText}`, { align: 'center' });
-                 
-                 doc.moveDown(1.5);
-
+                 doc.moveDown(1);
                } catch (err) {
-                 doc.fillColor('red').text(`[Erro ao carregar imagem]`, { align: 'center' });
+                 doc.text('[Erro imagem]', { color: 'red' });
                }
             }
           });
         }
         
         doc.moveDown(1);
+        doc.moveTo(50, doc.y).lineTo(550, doc.y).strokeColor('#ccc').stroke(); // Linha separadora
+        doc.moveDown(1);
       });
-
-      // --- RODAPÉ ---
-      const range = doc.bufferedPageRange();
-      for (let i = range.start; i < range.start + range.count; i++) {
-        doc.switchToPage(i);
-        doc.fontSize(8).fillColor('#aaaaaa')
-           .text(`Ticket Edenred - Confidencial | Página ${i + 1} de ${range.count}`, 
-                 50, 
-                 doc.page.height - 50, 
-                 { align: 'center' }
-           );
-      }
 
       doc.end();
 
