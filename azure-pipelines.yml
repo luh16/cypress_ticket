@@ -54,10 +54,13 @@ stages:
              curl -I receivable-stg-merchants.ticket.edenred.net
             displayName: 'Diagnóstico de Rede'
 
+          # ✅ Passo 1: Execução dos Testes
+          # Usamos "npm run cy:pipeline" pois ele já traz a flag --env GENERATE_PDF=true configurada no package.json
           - script: |
-              npx cypress run --env allure=true
-            displayName: 'Executar Testes Regressivos'
+              npm run cy:pipeline -- --env allure=true
+            displayName: 'Executar Testes Regressivos (Gera PDF e Allure)'
             continueOnError: true # Garante que o report seja gerado mesmo se testes falharem
+
           # --- GERAÇÃO DO ALLURE REPORT ---
           - script: |
               echo "Gerando Allure Report..."
@@ -66,7 +69,7 @@ stages:
             displayName: 'Gerar Allure Report'
             condition: always()
 
-          # --- ZIP E PUBLICAÇÃO ---
+          # --- ZIP E PUBLICAÇÃO DO ALLURE ---
           - task: ArchiveFiles@2
             displayName: 'Compactar Allure Results em ZIP'
             condition: always()
@@ -78,11 +81,22 @@ stages:
               replaceExistingArchive: true
 
           - task: PublishPipelineArtifact@1
-            displayName: 'Upload do ZIP para download'
+            displayName: 'Upload do ZIP (Allure) para download'
             condition: always()
             inputs:
               targetPath: '$(Build.ArtifactStagingDirectory)/allure-results-$(Build.BuildId).zip'
               artifact: 'AllureResults_Download'
+              publishLocation: 'pipeline'
+          
+          # ✅ Passo 2: Publicar o PDF Gerado
+          # O PDF é gerado automaticamente na pasta "cypress/evidence" pelo código no cypress.config.js
+          # Aqui nós pegamos essa pasta e salvamos como um artefato da pipeline para você baixar depois.
+          - task: PublishPipelineArtifact@1
+            displayName: 'Upload do Relatório PDF'
+            condition: always() # Roda mesmo se testes falharem
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/cypress/evidence' # Pasta onde o PDF foi salvo
+              artifact: 'Relatorio_PDF_Execucao' # Nome do botão de download que aparecerá no Azure
               publishLocation: 'pipeline'
 
           - script: |
@@ -99,10 +113,12 @@ stages:
               testRunTitle: 'Cypress Regressivo'
               mergeTestResults: true # Consolida os arquivos em um único reporte no Azure
           
-          - script: |
-              node -e "require('./cypress/support/pdfHelper').generateFromScreenshots({ environmentName: 'STG' })"
-            displayName: 'Gerar PDF de evidências'
-            condition: always()
+          # ❌ Script antigo removido (não precisa mais chamar manualmente o gerador de PDF)
+          # - script: |
+          #     node -e "require('./cypress/support/pdfHelper').generateFromScreenshots({ environmentName: 'STG' })"
+          #   displayName: 'Gerar PDF de evidências'
+          #   condition: always()
+
           # Publicar resultados nos Test Plans (vínculo por Test Plan/Suite/Case via REST API)
           - script: |
               npm install axios fast-xml-parser

@@ -11,7 +11,9 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "cy:open": "cypress run open",
+    "cy:open": "cypress open",
+    "cy:open:teste": "cypress open --env tags=\"@teste\"",
+    "pdf": "node scripts/generate-pdf-manual.js",
     "cy:run": "cypress run",
     "cy:pipeline": "cypress run --env GENERATE_PDF=true",
     "allure:generate": "allure generate allure-results --clean -o allure-report",

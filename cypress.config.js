@@ -25,6 +25,7 @@ module.exports = defineConfig({
   },
   defaultCommandTimeout: 10000,
   e2e: {
+    experimentalInteractiveRunEvents: true, // ✅ Permite que after:run funcione no modo 'cypress open'
     async setupNodeEvents(on, config) {
       // ✅ configura o preprocessor
       const bundler = createBundler({
@@ -47,6 +48,12 @@ module.exports = defineConfig({
         accumulateEvidence(data) {
           console.log(`[Evidence] Recebido: ${data.title}`);
           evidences.push(data);
+          
+          // Salva backup para gerar manualmente se necessário
+          const tempFile = 'cypress/evidence/temp_evidences.json';
+          if (!fs.existsSync('cypress/evidence')) fs.mkdirSync('cypress/evidence', { recursive: true });
+          fs.writeFileSync(tempFile, JSON.stringify(evidences, null, 2));
+
           return null;
         },
         // Mantido para compatibilidade caso ainda seja chamado, mas não faz nada
@@ -90,9 +97,13 @@ module.exports = defineConfig({
       });
 
       // --- GERA O PDF FINAL QUANDO TUDO ACABAR ---
+      // Esse evento "after:run" é chamado automaticamente pelo Cypress ao fim da execução
+      // É aqui que consolidamos todas as evidências em um único arquivo PDF.
       on('after:run', async () => {
         if (evidences.length > 0) {
           console.log('>>> GERANDO RELATÓRIO PDF FINAL <<<');
+          
+          // Define onde o PDF será salvo. IMPORTANTE: Essa pasta deve ser publicada na pipeline!
           const fileName = `cypress/evidence/Relatorio_Final_${Date.now()}.pdf`;
           
           const dir = path.dirname(fileName);
@@ -100,12 +111,12 @@ module.exports = defineConfig({
 
           try {
             await generatePdf(evidences, fileName);
-            console.log(`PDF GERADO: ${fileName}`);
+            console.log(`PDF GERADO COM SUCESSO: ${fileName}`);
           } catch (err) {
-            console.error('ERRO AO GERAR PDF:', err);
+            console.error('ERRO CRÍTICO AO GERAR PDF:', err);
           }
         } else {
-          console.log('Nenhuma evidência para gerar PDF.');
+          console.log('Nenhuma evidência foi coletada para gerar PDF.');
         }
       });
 
