@@ -3,11 +3,12 @@ import { AfterStep } from "@badeball/cypress-cucumber-preprocessor";
 AfterStep(function ({ pickleStep }) {
   try {
     if (pickleStep && pickleStep.text) {
-      // Permite acentuação e caracteres especiais comuns em PT-BR, mas remove inválidos para arquivo
-      const safeStepName = pickleStep.text.replace(/[^a-zA-Z0-9\s-_\u00C0-\u00FF]/g, '').trim();
+      // Permite caracteres especiais, substituindo apenas os proibidos pelo Windows
+      let safeStepName = pickleStep.text.replace(/"/g, "'"); // Troca aspas duplas por simples
+      safeStepName = safeStepName.replace(/[<>:"/\\|?*\x00-\x1F]/g, ''); // Remove caracteres inválidos para pasta/arquivo
       
       // Limita tamanho para evitar erros de filesystem
-      const stepName = safeStepName.substring(0, 100); 
+      const stepName = safeStepName.trim().substring(0, 100); 
       
       // Tira o screenshot. O nome será capturado pelo e2e-pdf-logs.js
       // Removemos overwrite:true para que passos repetidos gerem (1), (2), etc.

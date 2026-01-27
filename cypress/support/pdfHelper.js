@@ -5,135 +5,6 @@ const fs = require('fs');
 // Montar caminhos de forma segura (independente de SO)
 const path = require('path');
 
-// Cache em memória dos cenários BDD já lidos das features
-let featureScenariosCache = null;
-
-// Lê todos os arquivos .feature e monta um mapa:
-// "Título do Scenario" -> [linhas Given/When/Then/And/Dado/Quando/Então/E...]
-function loadFeatureScenarios() {
-  if (featureScenariosCache) return featureScenariosCache;
-
-  const scenarios = {};
-  // Suporta duas estruturas de projeto:
-  // - cypress/e2e
-  // - cypress/web/features
-  const baseDirs = [
-    path.join(process.cwd(), 'cypress', 'e2e'),
-    path.join(process.cwd(), 'cypress', 'web', 'features')
-  ];
-
-  // Percorre recursivamente as pastas atrás de arquivos .feature
-  function walk(dir) {
-    if (!fs.existsSync(dir)) return;
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-    entries.forEach(entry => {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith('.feature')) {
-        // Lê o conteúdo da feature linha a linha
-        const content = fs.readFileSync(fullPath, 'utf-8').split(/\r?\n/);
-
-        let currentTitle = null;
-        let currentSteps = [];
-        let backgroundSteps = []; // Armazena passos do Contexto/Background
-
-        // Para cada linha da feature, identifica Contexto, Scenario e passos BDD
-        content.forEach(line => {
-          const trimmed = line.trim();
-
-          // 1. Verifica se é Contexto/Background
-          // (Se encontrar, limpa passos anteriores de background e define que não estamos mais em um cenário específico)
-          if (/^(Background|Contexto|Fundo):/i.test(trimmed)) {
-            backgroundSteps = [];
-            currentTitle = null; // Garante que passos seguintes sejam capturados como background
-          
-          // 2. Verifica se é Scenario (ou Cénario/Cenário)
-          } else if (/^(Scenario|Cenário|Cenario|Cénario):/i.test(trimmed)) {
-            // Se já estávamos lendo um cenário anterior, salva ele antes de começar o novo
-            if (currentTitle) {
-              scenarios[currentTitle] = currentSteps;
-            }
-            // Extrai o título do cenário removendo o prefixo
-            currentTitle = trimmed.replace(/^(Scenario|Cenário|Cenario|Cénario):/i, '').trim();
-            // Inicia os passos deste cenário herdando os passos do Background atual
-            currentSteps = [...backgroundSteps];
-
-          // 3. Verifica se é um passo BDD (Given/When/Then/And/But ou versões em PT)
-          } else if (/^(Given|When|Then|And|But|Dado|Quando|Então|Entao|E)\b/.test(trimmed)) {
-            // Se estamos dentro de um cenário, adiciona aos passos do cenário
-            if (currentTitle) {
-              currentSteps.push(trimmed);
-            } else {
-              // Se não tem cenário ativo, assume que é parte do Background
-              backgroundSteps.push(trimmed);
-            }
-          }
-        });
-
-        // Garante que o último cenário lido seja salvo no mapa
-        if (currentTitle) {
-          scenarios[currentTitle] = currentSteps;
-        }
-      }
-    });
-  }
-
-  baseDirs.forEach(dir => {
-    console.log(`[DEBUG] Varrendo diretório: ${dir}`);
-    walk(dir);
-  });
-  console.log(`[DEBUG] Cenários carregados: ${Object.keys(scenarios).length}`);
-  // console.log(`[DEBUG] Títulos encontrados:`, Object.keys(scenarios)); 
-  
-  featureScenariosCache = scenarios;
-  return featureScenariosCache;
-}
-
-function sanitizeTitle(str) {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
-
-// Encontra os passos BDD (linhas da feature) a partir do título do teste
-// - Primeiro tenta match exato com o título do Scenario
-// - Depois tenta match "contém" em lowercase (mais flexível)
-function findGherkinStepsForTitle(testTitle) {
-  const scenarios = loadFeatureScenarios();
-
-  if (scenarios[testTitle]) {
-      console.log(`[DEBUG] Match exato para: "${testTitle}"`);
-      return scenarios[testTitle];
-  }
-
-  const normalized = testTitle.toLowerCase().trim();
-  const sanitizedTest = sanitizeTitle(testTitle);
-  for (const [scenarioTitle, steps] of Object.entries(scenarios)) {
-    const normalizedScenario = scenarioTitle.toLowerCase().trim();
-    const sanitizedScenario = sanitizeTitle(scenarioTitle);
-    
-    // Tenta match parcial
-    if (
-      normalizedScenario.includes(normalized) ||
-      normalized.includes(normalizedScenario) ||
-      sanitizedScenario === sanitizedTest ||
-      sanitizedScenario.includes(sanitizedTest) ||
-      sanitizedTest.includes(sanitizedScenario)
-    ) {
-      console.log(`[DEBUG] Match parcial: "${testTitle}" <--> "${scenarioTitle}"`);
-      return steps;
-    }
-  }
-
-  console.log(`[DEBUG] NENHUM match para: "${testTitle}"`);
-  return null; // Não encontrou nenhum cenário correspondente
-}
-
 // Gera o PDF consolidado de execução a partir da lista de testes (testResults)
 // Cada item de testResults deve conter:
 // - title: nome do teste/cenário
@@ -194,38 +65,38 @@ async function generatePdf(testResults, outputPath) {
         
         doc.fillColor('black').moveDown(0.5);
 
-        // Busca passos BDD diretamente na feature (Given/When/Then/Dado/Quando/Então/E)
-        const gherkinSteps = findGherkinStepsForTitle(test.title);
+        // --- LISTA DE PASSOS (RESUMO) ---
+        // Exibe os passos executados antes das evidências visuais
+        if (test.steps && test.steps.length > 0) {
+            doc.font('Helvetica-Bold').fontSize(10).fillColor('#333333').text('Passos Executados:', { underline: true });
+            doc.moveDown(0.2);
+            doc.font('Helvetica').fontSize(9).fillColor('#333333');
 
-        // Imprime o BDD completo ANTES de começar a listar as evidências
-        if (gherkinSteps && gherkinSteps.length > 0) {
-            try {
-                doc.font('Helvetica').fontSize(9).fillColor('#333333');
-                gherkinSteps.forEach(line => {
-                    // Verifica se precisa de nova página
-                    if (doc.y > 700) {
+            test.steps.forEach(step => {
+                // Filtra passos internos/automáticos para mostrar apenas o fluxo relevante
+                const isRelevantStep = step.step && 
+                                     !step.step.startsWith('final_') && 
+                                     step.step !== 'Screenshot Capturado';
+                
+                if (isRelevantStep) {
+                    // Verifica quebra de página para a lista
+                    if (doc.y > 720) {
                         doc.addPage();
-                        doc.rect(0, 0, 600, 20).fill('#E4002B'); // Cabeçalho repetido
+                        doc.rect(0, 0, 600, 20).fill('#E4002B');
                         doc.fillColor('black');
                         doc.moveDown(2);
-                        doc.font('Helvetica').fontSize(9).fillColor('#333333'); // Restaura fonte
+                        doc.font('Helvetica').fontSize(9).fillColor('#333333');
                     }
-                    if (line) {
-                        doc.text(line.toString(), { align: 'left' });
-                    }
-                });
-                doc.moveDown(1); // Espaço entre o BDD e o primeiro screenshot
-            } catch (err) {
-                console.error('[PDF DEBUG] Erro ao imprimir BDD:', err);
-                doc.text('[Erro ao exibir passos BDD]', { color: 'red' });
-            }
+                    doc.text(`• ${step.step}`, { align: 'left', indent: 10 });
+                }
+            });
+            doc.moveDown(1);
         }
-        
-        // Evidências (screenshots) capturadas durante o teste
-        if (test.steps && test.steps.length > 0) {
 
+        // --- EVIDÊNCIAS (SCREENSHOTS) ---
+        if (test.steps && test.steps.length > 0) {
           test.steps.forEach(step => {
-            // Cada passo que contém caminho de screenshot gera uma evidência visual
+            // Só exibe se tiver screenshot válido
             if (step.screenshot && fs.existsSync(step.screenshot)) {
                // Verifica espaço na página atual antes de inserir novo bloco
                if (doc.y > 600) {
@@ -236,31 +107,18 @@ async function generatePdf(testResults, outputPath) {
                }
                
                try {
-                 // --- TRECHO NOVO PARA EXIBIR NOME DO PASSO ---
-                 // Verifica se o passo tem um nome específico capturado pelo hook (ex: "Given que acesso...")
-                 // Ignora nomes padrão como 'Screenshot Capturado' ou 'final_'
-                 const isCustomStep = (step.step && step.step !== 'Screenshot Capturado' && !step.step.startsWith('final_'));
-
-                 if (isCustomStep) {
-                    // Se for um passo do BDD, escreve o nome dele em negrito alinhado à esquerda
-                    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
-                       .text(step.step, { align: 'left' });
-                 } else {
-                    // Se for um screenshot genérico, escreve apenas "Screenshot" centralizado
-                    doc.font('Helvetica').fontSize(9).fillColor('#555555')
-                       .text('Screenshot', { align: 'center' });
-                 }
+                 // Exibe nome do passo acima da imagem
+                 const stepName = (step.step && !step.step.startsWith('final_')) ? step.step : 'Evidência Final / Erro';
+                 
+                 doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+                    .text(stepName, { align: 'left' });
+                 
                  doc.moveDown(0.2);
-                 // ---------------------------------------------
 
                  // Tenta resolver caminho absoluto se for relativo
                  let imagePath = step.screenshot;
                  if (!path.isAbsolute(imagePath)) {
                     imagePath = path.resolve(process.cwd(), imagePath);
-                 }
-
-                 if (!fs.existsSync(imagePath)) {
-                    throw new Error(`Arquivo não encontrado: ${imagePath}`);
                  }
 
                  // Imagem da evidência
