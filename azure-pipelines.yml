@@ -55,9 +55,9 @@ stages:
             displayName: 'Diagnóstico de Rede'
 
           # ✅ Passo 1: Execução dos Testes
-          # Usamos "npm run cy:pipeline" pois ele já traz a flag --env GENERATE_PDF=true configurada no package.json
+          # Usamos npx cypress run diretamente passando variáveis individuais para evitar erro de parsing JSON
           - script: |
-              npm run cy:pipeline -- --env allure=true
+              npx cypress run --env GENERATE_PDF=true --env allure=true --env tags="@teste"
             displayName: 'Executar Testes Regressivos (Gera PDF e Allure)'
             continueOnError: true # Garante que o report seja gerado mesmo se testes falharem
 

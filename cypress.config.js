@@ -100,14 +100,15 @@ module.exports = defineConfig({
       // Esse evento "after:run" é chamado automaticamente pelo Cypress ao fim da execução
       // É aqui que consolidamos todas as evidências em um único arquivo PDF.
       on('after:run', async () => {
+        // Garante que a pasta existe mesmo se não houver evidências (evita erro na pipeline)
+        const evidenceDir = 'cypress/evidence';
+        if (!fs.existsSync(evidenceDir)) fs.mkdirSync(evidenceDir, { recursive: true });
+
         if (evidences.length > 0) {
           console.log('>>> GERANDO RELATÓRIO PDF FINAL <<<');
           
           // Define onde o PDF será salvo. IMPORTANTE: Essa pasta deve ser publicada na pipeline!
-          const fileName = `cypress/evidence/Relatorio_Final_${Date.now()}.pdf`;
-          
-          const dir = path.dirname(fileName);
-          if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+          const fileName = path.join(evidenceDir, `Relatorio_Final_${Date.now()}.pdf`);
 
           try {
             await generatePdf(evidences, fileName);
