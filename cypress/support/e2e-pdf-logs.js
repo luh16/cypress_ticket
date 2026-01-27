@@ -19,8 +19,11 @@ Cypress.on('fail', (error, runnable) => {
 // Captura Screenshots (automáticos ou manuais)
 Cypress.Screenshot.defaults({
   onAfterScreenshot($el, props) {
+    // Usa o nome fornecido no cy.screenshot() ou um padrão
+    const stepName = props.name || 'Screenshot Capturado';
+    
     currentTestLogs.push({
-      step: 'Screenshot Capturado',
+      step: stepName,
       screenshot: props.path,
       timestamp: new Date().toISOString()
     });

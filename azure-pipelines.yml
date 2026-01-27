@@ -18,13 +18,14 @@ stages:
               versionSpec: "18.x"
           - script: |
               echo "Limpando arquivos anteriores"
-              rm -rf "$(Build.SourcesDirectory)/cypress/screenshots"
-              rm -rf "$(Build.SourcesDirectory)/results"
-              rm -rf $(Build.SourcesDirectory)/cypress/results
+              rm -rf "$(System.DefaultWorkingDirectory)/cypress/screenshots"
+              rm -rf "$(System.DefaultWorkingDirectory)/results"
+              rm -rf "$(System.DefaultWorkingDirectory)/cypress/results"
+              rm -rf "$(System.DefaultWorkingDirectory)/cypress/evidence"
               rm -rf '$(Build.ArtifactStagingDirectory)/cypress/screenshots'
-              rm -rf "$(Build.SourcesDirectory)/allure-results"
-              rm -rf "$(Build.SourcesDirectory)/allure-report"
-              rm -rf "$(Build.SourcesDirectory)/node_modules"
+              rm -rf "$(System.DefaultWorkingDirectory)/allure-results"
+              rm -rf "$(System.DefaultWorkingDirectory)/allure-report"
+              rm -rf "$(System.DefaultWorkingDirectory)/node_modules"
               rm -rf /root/.cache/Cypress || true
             displayName: 'Limpar arquivos anteriores'
             condition: always()
@@ -89,14 +90,13 @@ stages:
               publishLocation: 'pipeline'
           
           # ✅ Passo 2: Publicar o PDF Gerado
-          # O PDF é gerado automaticamente na pasta "cypress/evidence" pelo código no cypress.config.js
-          # Aqui nós pegamos essa pasta e salvamos como um artefato da pipeline para você baixar depois.
+          # Publicamos diretamente a pasta onde o PDF foi gerado
           - task: PublishPipelineArtifact@1
             displayName: 'Upload do Relatório PDF'
             condition: always() # Roda mesmo se testes falharem
             inputs:
-              targetPath: '$(Build.SourcesDirectory)/cypress/evidence' # Pasta onde o PDF foi salvo
-              artifact: 'Relatorio_PDF_Execucao' # Nome do botão de download que aparecerá no Azure
+              targetPath: '$(System.DefaultWorkingDirectory)/cypress/evidence' 
+              artifact: 'Relatorio_PDF_Execucao'
               publishLocation: 'pipeline'
 
           - script: |

@@ -198,8 +198,15 @@ async function generatePdf(testResults, outputPath) {
                checkPageBreak(doc, 600);
                
                try {
-                 doc.font('Helvetica').fontSize(9).fillColor('#555555')
-                    .text(`Screenshot`, { align: 'center' });
+                 const isCustomStep = (step.step && step.step !== 'Screenshot Capturado' && !step.step.startsWith('final_'));
+
+                 if (isCustomStep) {
+                    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+                       .text(step.step, { align: 'left' });
+                 } else {
+                    doc.font('Helvetica').fontSize(9).fillColor('#555555')
+                       .text('Screenshot', { align: 'center' });
+                 }
                  doc.moveDown(0.2);
 
                  // Imprime BDD apenas na primeira evidência do teste
