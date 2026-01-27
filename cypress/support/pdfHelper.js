@@ -53,7 +53,28 @@ async function generatePdf(testResults, outputPath) {
         
         doc.fillColor('black').moveDown(0.5);
 
-        // Evidências
+        // --- EXIBIR STEPS (BDD / Ações) ---
+        if (test.steps && test.steps.length > 0) {
+            doc.fontSize(9).font('Helvetica').fillColor('#333333');
+            
+            // Filtra e exibe apenas logs de texto (não screenshots)
+            // Se você quiser ver logs do Cucumber, certifique-se de capturá-los no e2e-pdf-logs.js
+            const textSteps = test.steps.filter(s => !s.screenshot);
+            
+            if (textSteps.length > 0) {
+                doc.text('Passos Executados:', { underline: true });
+                doc.moveDown(0.2);
+                
+                textSteps.forEach(step => {
+                     // Limita o tamanho do texto para não quebrar layout
+                     const stepText = step.step.replace(/[\r\n]+/g, ' ').substring(0, 100);
+                     doc.text(`• ${stepText}`);
+                });
+                doc.moveDown(1);
+            }
+        }
+
+        // Evidências (Screenshots)
         if (test.steps && test.steps.length > 0) {
           test.steps.forEach(step => {
             if (step.screenshot && fs.existsSync(step.screenshot)) {
