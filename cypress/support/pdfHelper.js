@@ -196,9 +196,30 @@ async function generatePdf(testResults, outputPath) {
 
         // Busca passos BDD diretamente na feature (Given/When/Then/Dado/Quando/Então/E)
         const gherkinSteps = findGherkinStepsForTitle(test.title);
-        // Garante que o bloco BDD será impresso apenas uma vez por teste,
-        // mesmo que existam múltiplos screenshots
-        let bddPrinted = false;
+
+        // Imprime o BDD completo ANTES de começar a listar as evidências
+        if (gherkinSteps && gherkinSteps.length > 0) {
+            try {
+                doc.font('Helvetica').fontSize(9).fillColor('#333333');
+                gherkinSteps.forEach(line => {
+                    // Verifica se precisa de nova página
+                    if (doc.y > 700) {
+                        doc.addPage();
+                        doc.rect(0, 0, 600, 20).fill('#E4002B'); // Cabeçalho repetido
+                        doc.fillColor('black');
+                        doc.moveDown(2);
+                        doc.font('Helvetica').fontSize(9).fillColor('#333333'); // Restaura fonte
+                    }
+                    if (line) {
+                        doc.text(line.toString(), { align: 'left' });
+                    }
+                });
+                doc.moveDown(1); // Espaço entre o BDD e o primeiro screenshot
+            } catch (err) {
+                console.error('[PDF DEBUG] Erro ao imprimir BDD:', err);
+                doc.text('[Erro ao exibir passos BDD]', { color: 'red' });
+            }
+        }
         
         // Evidências (screenshots) capturadas durante o teste
         if (test.steps && test.steps.length > 0) {
@@ -232,27 +253,25 @@ async function generatePdf(testResults, outputPath) {
                  doc.moveDown(0.2);
                  // ---------------------------------------------
 
-                 // --- BDD abaixo do texto "Screenshot" ---
-                 // Se encontrarmos passos BDD para esse título de teste,
-                 // imprimimos apenas uma vez logo abaixo de "Screenshot"
-                 if (gherkinSteps && gherkinSteps.length > 0 && !bddPrinted) {
-                   doc.font('Helvetica').fontSize(9).fillColor('#333333');
-                   gherkinSteps.forEach(line => {
-                     // Alinhamento à esquerda conforme solicitado
-                     doc.text(line, { align: 'left' });
-                   });
-                   doc.moveDown(0.5);
-                   bddPrinted = true;
+                 // Tenta resolver caminho absoluto se for relativo
+                 let imagePath = step.screenshot;
+                 if (!path.isAbsolute(imagePath)) {
+                    imagePath = path.resolve(process.cwd(), imagePath);
                  }
-                 
+
+                 if (!fs.existsSync(imagePath)) {
+                    throw new Error(`Arquivo não encontrado: ${imagePath}`);
+                 }
+
                  // Imagem da evidência
-                 doc.image(step.screenshot, { 
+                 doc.image(imagePath, { 
                    fit: [450, 250], 
                    align: 'center' 
                  });
                  doc.moveDown(1);
                } catch (err) {
-                 doc.text('[Erro imagem]', { color: 'red' });
+                 console.error(`[PDF DEBUG] Erro ao renderizar imagem: ${step.screenshot}`, err);
+                 doc.text(`[Erro imagem: ${err.message}]`, { color: 'red' });
                }
             }
           });

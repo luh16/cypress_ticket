@@ -3,8 +3,8 @@ import { AfterStep } from "@badeball/cypress-cucumber-preprocessor";
 AfterStep(function ({ pickleStep }) {
   try {
     if (pickleStep && pickleStep.text) {
-      // Remove caracteres especiais para evitar problemas no nome do arquivo, mas mantém espaços
-      const safeStepName = pickleStep.text.replace(/[^a-zA-Z0-9\s-_]/g, '').trim();
+      // Permite acentuação e caracteres especiais comuns em PT-BR, mas remove inválidos para arquivo
+      const safeStepName = pickleStep.text.replace(/[^a-zA-Z0-9\s-_\u00C0-\u00FF]/g, '').trim();
       
       // Limita tamanho para evitar erros de filesystem
       const stepName = safeStepName.substring(0, 100); 

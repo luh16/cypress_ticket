@@ -5,8 +5,6 @@ import '@shelex/cypress-allure-plugin';
 
 // --- PDF: Lógica movida para arquivo separado ---
 import './e2e-pdf-logs';
-// Importa hook global de screenshots (passo a passo)
-import './global_hooks';
 // ------------------------------------------------
 
 // Tratamento de exceções não capturadas
