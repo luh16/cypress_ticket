@@ -215,10 +215,10 @@ async function generatePdf(testResults, outputPath) {
                }
                
                try {
-                 doc.font('Helvetica').fontSize(9).fillColor('#555555')
-                    .text(`Screenshot`, { align: 'center' });
-                 
-                 doc.moveDown(0.2);
+                 //doc.font('Helvetica').fontSize(9).fillColor('#555555')
+                 //   .text(`Screenshot`, { align: 'center' });
+                 //
+                 //doc.moveDown(0.2);
 
                  // --- BDD abaixo do texto "Screenshot" ---
                  // Se encontrarmos passos BDD para esse título de teste,
