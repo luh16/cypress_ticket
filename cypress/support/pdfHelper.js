@@ -37,25 +37,42 @@ function loadFeatureScenarios() {
 
         let currentTitle = null;
         let currentSteps = [];
+        let backgroundSteps = []; // Armazena passos do Contexto/Background
 
-        // Para cada linha da feature, identifica título do Scenario e passos BDD
+        // Para cada linha da feature, identifica Contexto, Scenario e passos BDD
         content.forEach(line => {
           const trimmed = line.trim();
 
-          // Início de um novo cenário
-          if (trimmed.startsWith('Scenario:')) {
+          // 1. Verifica se é Contexto/Background
+          // (Se encontrar, limpa passos anteriores de background e define que não estamos mais em um cenário específico)
+          if (/^(Background|Contexto|Fundo):/i.test(trimmed)) {
+            backgroundSteps = [];
+            currentTitle = null; // Garante que passos seguintes sejam capturados como background
+          
+          // 2. Verifica se é Scenario (ou Cénario/Cenário)
+          } else if (/^(Scenario|Cenário|Cenario|Cénario):/i.test(trimmed)) {
+            // Se já estávamos lendo um cenário anterior, salva ele antes de começar o novo
             if (currentTitle) {
               scenarios[currentTitle] = currentSteps;
             }
-            currentTitle = trimmed.replace('Scenario:', '').trim();
-            currentSteps = [];
-          // Linha de passo BDD (em inglês ou português)
+            // Extrai o título do cenário removendo o prefixo
+            currentTitle = trimmed.replace(/^(Scenario|Cenário|Cenario|Cénario):/i, '').trim();
+            // Inicia os passos deste cenário herdando os passos do Background atual
+            currentSteps = [...backgroundSteps];
+
+          // 3. Verifica se é um passo BDD (Given/When/Then/And/But ou versões em PT)
           } else if (/^(Given|When|Then|And|But|Dado|Quando|Então|Entao|E)\b/.test(trimmed)) {
-            currentSteps.push(trimmed);
+            // Se estamos dentro de um cenário, adiciona aos passos do cenário
+            if (currentTitle) {
+              currentSteps.push(trimmed);
+            } else {
+              // Se não tem cenário ativo, assume que é parte do Background
+              backgroundSteps.push(trimmed);
+            }
           }
         });
 
-        // Garante que o último cenário lido seja salvo
+        // Garante que o último cenário lido seja salvo no mapa
         if (currentTitle) {
           scenarios[currentTitle] = currentSteps;
         }
@@ -74,6 +91,15 @@ function loadFeatureScenarios() {
   return featureScenariosCache;
 }
 
+function sanitizeTitle(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 // Encontra os passos BDD (linhas da feature) a partir do título do teste
 // - Primeiro tenta match exato com o título do Scenario
 // - Depois tenta match "contém" em lowercase (mais flexível)
@@ -86,11 +112,19 @@ function findGherkinStepsForTitle(testTitle) {
   }
 
   const normalized = testTitle.toLowerCase().trim();
+  const sanitizedTest = sanitizeTitle(testTitle);
   for (const [scenarioTitle, steps] of Object.entries(scenarios)) {
     const normalizedScenario = scenarioTitle.toLowerCase().trim();
+    const sanitizedScenario = sanitizeTitle(scenarioTitle);
     
     // Tenta match parcial
-    if (normalizedScenario.includes(normalized) || normalized.includes(normalizedScenario)) {
+    if (
+      normalizedScenario.includes(normalized) ||
+      normalized.includes(normalizedScenario) ||
+      sanitizedScenario === sanitizedTest ||
+      sanitizedScenario.includes(sanitizedTest) ||
+      sanitizedTest.includes(sanitizedScenario)
+    ) {
       console.log(`[DEBUG] Match parcial: "${testTitle}" <--> "${scenarioTitle}"`);
       return steps;
     }
@@ -192,7 +226,8 @@ async function generatePdf(testResults, outputPath) {
                  if (gherkinSteps && gherkinSteps.length > 0 && !bddPrinted) {
                    doc.font('Helvetica').fontSize(9).fillColor('#333333');
                    gherkinSteps.forEach(line => {
-                     doc.text(line, { align: 'center' });
+                     // Alinhamento à esquerda conforme solicitado
+                     doc.text(line, { align: 'left' });
                    });
                    doc.moveDown(0.5);
                    bddPrinted = true;
