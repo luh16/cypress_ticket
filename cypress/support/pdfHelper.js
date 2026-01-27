@@ -215,10 +215,22 @@ async function generatePdf(testResults, outputPath) {
                }
                
                try {
-                 //doc.font('Helvetica').fontSize(9).fillColor('#555555')
-                 //   .text(`Screenshot`, { align: 'center' });
-                 //
-                 //doc.moveDown(0.2);
+                 // --- TRECHO NOVO PARA EXIBIR NOME DO PASSO ---
+                 // Verifica se o passo tem um nome específico capturado pelo hook (ex: "Given que acesso...")
+                 // Ignora nomes padrão como 'Screenshot Capturado' ou 'final_'
+                 const isCustomStep = (step.step && step.step !== 'Screenshot Capturado' && !step.step.startsWith('final_'));
+
+                 if (isCustomStep) {
+                    // Se for um passo do BDD, escreve o nome dele em negrito alinhado à esquerda
+                    doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+                       .text(step.step, { align: 'left' });
+                 } else {
+                    // Se for um screenshot genérico, escreve apenas "Screenshot" centralizado
+                    doc.font('Helvetica').fontSize(9).fillColor('#555555')
+                       .text('Screenshot', { align: 'center' });
+                 }
+                 doc.moveDown(0.2);
+                 // ---------------------------------------------
 
                  // --- BDD abaixo do texto "Screenshot" ---
                  // Se encontrarmos passos BDD para esse título de teste,
