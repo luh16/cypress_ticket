@@ -63,7 +63,13 @@ function loadFeatureScenarios() {
     });
   }
 
-  baseDirs.forEach(dir => walk(dir));
+  baseDirs.forEach(dir => {
+    console.log(`[DEBUG] Varrendo diretório: ${dir}`);
+    walk(dir);
+  });
+  console.log(`[DEBUG] Cenários carregados: ${Object.keys(scenarios).length}`);
+  // console.log(`[DEBUG] Títulos encontrados:`, Object.keys(scenarios)); 
+  
   featureScenariosCache = scenarios;
   return featureScenariosCache;
 }
@@ -74,16 +80,23 @@ function loadFeatureScenarios() {
 function findGherkinStepsForTitle(testTitle) {
   const scenarios = loadFeatureScenarios();
 
-  if (scenarios[testTitle]) return scenarios[testTitle];
+  if (scenarios[testTitle]) {
+      console.log(`[DEBUG] Match exato para: "${testTitle}"`);
+      return scenarios[testTitle];
+  }
 
-  const normalized = testTitle.toLowerCase();
+  const normalized = testTitle.toLowerCase().trim();
   for (const [scenarioTitle, steps] of Object.entries(scenarios)) {
-    const normalizedScenario = scenarioTitle.toLowerCase();
+    const normalizedScenario = scenarioTitle.toLowerCase().trim();
+    
+    // Tenta match parcial
     if (normalizedScenario.includes(normalized) || normalized.includes(normalizedScenario)) {
+      console.log(`[DEBUG] Match parcial: "${testTitle}" <--> "${scenarioTitle}"`);
       return steps;
     }
   }
 
+  console.log(`[DEBUG] NENHUM match para: "${testTitle}"`);
   return null; // Não encontrou nenhum cenário correspondente
 }
 
