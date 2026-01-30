@@ -1,48 +1,48 @@
 import { AfterStep } from "@badeball/cypress-cucumber-preprocessor";
 
-AfterStep(function ({ pickleStep, gherkinDocument }) {
-  try {
-    if (pickleStep && pickleStep.text) {
-      
-      // Tenta recuperar a keyword (Dado, Quando, Então) usando o ID do step
-      let keyword = '';
-      if (gherkinDocument && gherkinDocument.feature && gherkinDocument.feature.children) {
-        const stepId = pickleStep.astNodeIds && pickleStep.astNodeIds[0];
-        if (stepId) {
-          // Coleta todos os steps (Background, Scenario, Rules)
-          const allSteps = [];
-          gherkinDocument.feature.children.forEach(child => {
-            if (child.background && child.background.steps) allSteps.push(...child.background.steps);
-            if (child.scenario && child.scenario.steps) allSteps.push(...child.scenario.steps);
-            if (child.rule && child.rule.children) {
-               child.rule.children.forEach(rc => {
-                 if (rc.background && rc.background.steps) allSteps.push(...rc.background.steps);
-                 if (rc.scenario && rc.scenario.steps) allSteps.push(...rc.scenario.steps);
-               });
-            }
-          });
-          
-          const foundStep = allSteps.find(s => s.id === stepId);
-          if (foundStep && foundStep.keyword) {
-            keyword = foundStep.keyword;
-          }
-        }
-      }
+// Helper: Busca a keyword (Dado, Quando...) recursivamente na estrutura do Gherkin
+const findStepKeyword = (children, stepId) => {
+  for (const child of children) {
+    // Busca em Background e Scenario
+    const steps = [
+      ...(child.background?.steps || []),
+      ...(child.scenario?.steps || [])
+    ];
+    const found = steps.find(s => s.id === stepId);
+    if (found) return found.keyword;
 
-      // Junta Keyword + Texto (ex: "Dado " + "que acesso a página")
-      const fullText = keyword + pickleStep.text;
-
-      // Permite caracteres especiais (acentos), removendo apenas os proibidos pelo Windows
-      let safeStepName = fullText.replace(/"/g, "'"); 
-      safeStepName = safeStepName.replace(/[<>:"/\\|?*\x00-\x1F]/g, ''); 
-      
-      // Limita tamanho e remove espaços extras nas pontas
-      const stepName = safeStepName.trim().substring(0, 100); 
-      
-      // Tira o screenshot com o nome completo (Keyword + Step)
-      cy.screenshot(stepName, { capture: 'runner' });
+    // Busca recursiva dentro de Rules
+    if (child.rule?.children) {
+      const keyword = findStepKeyword(child.rule.children, stepId);
+      if (keyword) return keyword;
     }
+  }
+  return '';
+};
+
+AfterStep(function ({ pickleStep, gherkinDocument }) {
+  // Se não tiver texto ou documento, ignora
+  if (!pickleStep?.text || !gherkinDocument?.feature?.children) return;
+
+  try {
+    // 1. Tenta achar a keyword (Dado, Quando, Então)
+    const stepId = pickleStep.astNodeIds?.[0];
+    const keyword = stepId ? findStepKeyword(gherkinDocument.feature.children, stepId) : '';
+
+    // 2. Monta o nome completo (ex: "Dado que acesso...")
+    const fullText = `${keyword}${pickleStep.text}`;
+
+    // 3. Sanitiza para ser um nome de arquivo válido no Windows
+    const safeName = fullText
+      .replace(/"/g, "'") // Aspas duplas viram simples
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // Remove caracteres proibidos
+      .trim()
+      .substring(0, 100); // Limita tamanho
+
+    // 4. Tira o screenshot
+    cy.screenshot(safeName, { capture: 'runner' });
+
   } catch (e) {
-    cy.log('Erro ao tirar screenshot do passo: ' + e.message);
+    console.error('Erro ao capturar screenshot:', e);
   }
 });
