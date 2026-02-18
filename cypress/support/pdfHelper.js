@@ -187,8 +187,8 @@ async function generatePdf(testResults, outputPath) {
         // Descobre a Feature correspondente ao título do teste (cenário)
         const featureName = findFeatureForTitle(test.title);
         if (featureName && featureName !== lastFeatureName) {
-          // Imprime um "título de seção" sempre que mudar de Feature
-          if (doc.y > 700) {
+          // Quando mudar de Feature (e não for a primeira), força ir para uma nova página
+          if (lastFeatureName !== null) {
             doc.addPage();
             doc.rect(0, 0, 600, 20).fill('#E4002B');
             doc.fillColor('black');
