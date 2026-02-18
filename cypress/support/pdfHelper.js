@@ -8,12 +8,11 @@ const path = require('path');
 // Cache em memória dos cenários BDD já lidos das features
 let featureScenariosCache = null;
 
-// Lê todos os arquivos .feature e monta um mapa:
-// "Título do Scenario" -> [linhas Given/When/Then/And/Dado/Quando/Então/E...]
 function loadFeatureScenarios() {
   if (featureScenariosCache) return featureScenariosCache;
 
   const scenarios = {};
+  const featureByScenario = {};
   // Suporta duas estruturas de projeto:
   // - cypress/e2e
   // - cypress/web/features
@@ -22,7 +21,6 @@ function loadFeatureScenarios() {
     path.join(process.cwd(), 'cypress', 'web', 'features')
   ];
 
-  // Percorre recursivamente as pastas atrás de arquivos .feature
   function walk(dir) {
     if (!fs.existsSync(dir)) return;
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -32,49 +30,39 @@ function loadFeatureScenarios() {
       if (entry.isDirectory()) {
         walk(fullPath);
       } else if (entry.isFile() && entry.name.endsWith('.feature')) {
-        // Lê o conteúdo da feature linha a linha
         const content = fs.readFileSync(fullPath, 'utf-8').split(/\r?\n/);
 
+        let currentFeature = null;
         let currentTitle = null;
         let currentSteps = [];
         let backgroundSteps = []; // Armazena passos do Contexto/Background
 
-        // Para cada linha da feature, identifica Contexto, Scenario e passos BDD
         content.forEach(line => {
           const trimmed = line.trim();
-
-          // 1. Verifica se é Contexto/Background
-          // (Se encontrar, limpa passos anteriores de background e define que não estamos mais em um cenário específico)
-          if (/^(Background|Contexto|Fundo):/i.test(trimmed)) {
+          if (/^(Feature|Funcionalidade):/i.test(trimmed)) {
+            currentFeature = trimmed.replace(/^(Feature|Funcionalidade):/i, '').trim();
+          } else if (/^(Background|Contexto|Fundo):/i.test(trimmed)) {
             backgroundSteps = [];
-            currentTitle = null; // Garante que passos seguintes sejam capturados como background
-          
-          // 2. Verifica se é Scenario (ou Cénario/Cenário)
+            currentTitle = null;
           } else if (/^(Scenario|Cenário|Cenario|Cénario):/i.test(trimmed)) {
-            // Se já estávamos lendo um cenário anterior, salva ele antes de começar o novo
             if (currentTitle) {
               scenarios[currentTitle] = currentSteps;
+              featureByScenario[currentTitle] = currentFeature;
             }
-            // Extrai o título do cenário removendo o prefixo
             currentTitle = trimmed.replace(/^(Scenario|Cenário|Cenario|Cénario):/i, '').trim();
-            // Inicia os passos deste cenário herdando os passos do Background atual
             currentSteps = [...backgroundSteps];
-
-          // 3. Verifica se é um passo BDD (Given/When/Then/And/But ou versões em PT)
           } else if (/^(Given|When|Then|And|But|Dado|Quando|Então|Entao|E)\b/.test(trimmed)) {
-            // Se estamos dentro de um cenário, adiciona aos passos do cenário
             if (currentTitle) {
               currentSteps.push(trimmed);
             } else {
-              // Se não tem cenário ativo, assume que é parte do Background
               backgroundSteps.push(trimmed);
             }
           }
         });
 
-        // Garante que o último cenário lido seja salvo no mapa
         if (currentTitle) {
           scenarios[currentTitle] = currentSteps;
+          featureByScenario[currentTitle] = currentFeature;
         }
       }
     });
@@ -85,9 +73,8 @@ function loadFeatureScenarios() {
     walk(dir);
   });
   console.log(`[DEBUG] Cenários carregados: ${Object.keys(scenarios).length}`);
-  // console.log(`[DEBUG] Títulos encontrados:`, Object.keys(scenarios)); 
   
-  featureScenariosCache = scenarios;
+  featureScenariosCache = { scenarios, featureByScenario };
   return featureScenariosCache;
 }
 
@@ -100,24 +87,21 @@ function sanitizeTitle(str) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-// Encontra os passos BDD (linhas da feature) a partir do título do teste
-// - Primeiro tenta match exato com o título do Scenario
-// - Depois tenta match "contém" em lowercase (mais flexível)
-function findGherkinStepsForTitle(testTitle) {
-  const scenarios = loadFeatureScenarios();
+function findScenarioKey(testTitle) {
+  const { scenarios } = loadFeatureScenarios();
 
   if (scenarios[testTitle]) {
-      console.log(`[DEBUG] Match exato para: "${testTitle}"`);
-      return scenarios[testTitle];
+    console.log(`[DEBUG] Match exato para: "${testTitle}"`);
+    return testTitle;
   }
 
   const normalized = testTitle.toLowerCase().trim();
   const sanitizedTest = sanitizeTitle(testTitle);
-  for (const [scenarioTitle, steps] of Object.entries(scenarios)) {
+
+  for (const scenarioTitle of Object.keys(scenarios)) {
     const normalizedScenario = scenarioTitle.toLowerCase().trim();
     const sanitizedScenario = sanitizeTitle(scenarioTitle);
-    
-    // Tenta match parcial
+
     if (
       normalizedScenario.includes(normalized) ||
       normalized.includes(normalizedScenario) ||
@@ -126,12 +110,27 @@ function findGherkinStepsForTitle(testTitle) {
       sanitizedTest.includes(sanitizedScenario)
     ) {
       console.log(`[DEBUG] Match parcial: "${testTitle}" <--> "${scenarioTitle}"`);
-      return steps;
+      return scenarioTitle;
     }
   }
 
   console.log(`[DEBUG] NENHUM match para: "${testTitle}"`);
-  return null; // Não encontrou nenhum cenário correspondente
+  return null;
+}
+
+// Encontra os passos BDD (linhas da feature) a partir do título do teste,
+// usando a chave de cenário encontrada acima
+function findGherkinStepsForTitle(testTitle) {
+  const { scenarios } = loadFeatureScenarios();
+  const key = findScenarioKey(testTitle);
+  return key ? scenarios[key] : null;
+}
+
+// Encontra o nome da Feature correspondente ao título do teste
+function findFeatureForTitle(testTitle) {
+  const { featureByScenario } = loadFeatureScenarios();
+  const key = findScenarioKey(testTitle);
+  return key ? featureByScenario[key] : null;
 }
 
 // Gera o PDF consolidado de execução a partir da lista de testes (testResults)
@@ -168,13 +167,11 @@ async function generatePdf(testResults, outputPath) {
       doc.fontSize(10).fillColor('#555555')
          .text(`Data: ${new Date().toLocaleString()}`, 50, 90, { align: 'left' });
 
-      doc.fontSize(10).fillColor('#555555')
-         .text('Squad: Recebíveis', 50, 90, { align: 'left' });
-
       // Define posição inicial de escrita após o cabeçalho
       doc.y = 130;
       doc.moveDown();
-      
+      // Controle para imprimir o nome da Feature apenas quando mudar
+      let lastFeatureName = null;
 
       // --- LOOP DOS TESTES ---
       // Para cada teste executado, escreve título, status e evidências
@@ -185,6 +182,22 @@ async function generatePdf(testResults, outputPath) {
           doc.rect(0, 0, 600, 20).fill('#E4002B'); // Repete a faixa na nova página
           doc.fillColor('black'); // Reseta a cor
           doc.moveDown(2);
+        }
+
+        // Descobre a Feature correspondente ao título do teste (cenário)
+        const featureName = findFeatureForTitle(test.title);
+        if (featureName && featureName !== lastFeatureName) {
+          // Imprime um "título de seção" sempre que mudar de Feature
+          if (doc.y > 700) {
+            doc.addPage();
+            doc.rect(0, 0, 600, 20).fill('#E4002B');
+            doc.fillColor('black');
+            doc.moveDown(2);
+          }
+          doc.fontSize(13).font('Helvetica-Bold').fillColor('#000000')
+             .text(`Feature: ${featureName}`);
+          doc.moveDown(0.5);
+          lastFeatureName = featureName;
         }
 
         // Título do cenário / teste
@@ -314,5 +327,150 @@ async function generatePdf(testResults, outputPath) {
     }
   });
 }
+
+/*
+  ==========================================================
+  BLOCO DE EXEMPLO: AGRUPAR CENÁRIOS POR FEATURE NO PDF
+  ----------------------------------------------------------
+  Este trecho NÃO está em uso neste projeto, serve apenas
+  como referência para copiar/colar em outros projetos.
+
+  IDEIA:
+  - Ler os arquivos .feature e montar dois mapas:
+      scenarios[cenario]        -> [passos BDD]
+      featureByScenario[cenario] -> "Nome da Feature"
+  - No generatePdf, imprimir o nome da Feature apenas
+    quando ela mudar, criando um "título de seção".
+  ==========================================================
+
+  // 1) Versão de loadFeatureScenarios que também captura o nome da Feature
+
+  let featureScenariosCache = null;
+
+  function loadFeatureScenarios() {
+    if (featureScenariosCache) return featureScenariosCache;
+
+    const scenarios = {};
+    const featureByScenario = {};
+    const baseDirs = [
+      path.join(process.cwd(), 'cypress', 'e2e'),
+      path.join(process.cwd(), 'cypress', 'web', 'features')
+    ];
+
+    function walk(dir) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+      entries.forEach(entry => {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile() && entry.name.endsWith('.feature')) {
+          const content = fs.readFileSync(fullPath, 'utf-8').split(/\r?\n/);
+          let currentFeature = null;
+          let currentTitle = null;
+          let currentSteps = [];
+          let backgroundSteps = []; 
+
+          content.forEach(line => {
+            const trimmed = line.trim();
+            if (/^(Feature|Funcionalidade):/i.test(trimmed)) {
+              currentFeature = trimmed.replace(/^(Feature|Funcionalidade):/i, '').trim();
+            } else if (/^(Background|Contexto|Fundo):/i.test(trimmed)) {
+              backgroundSteps = [];
+              currentTitle = null; 
+            } else if (/^(Scenario|Cenário|Cenario|Cénario):/i.test(trimmed)) {
+              if (currentTitle) {
+                scenarios[currentTitle] = currentSteps;
+                featureByScenario[currentTitle] = currentFeature;
+              }
+              currentTitle = trimmed.replace(/^(Scenario|Cenário|Cenario|Cénario):/i, '').trim();
+              currentSteps = [...backgroundSteps];
+            } else if (/^(Given|When|Then|And|But|Dado|Quando|Então|Entao|E)\b/.test(trimmed)) {
+              if (currentTitle) currentSteps.push(trimmed);
+              else backgroundSteps.push(trimmed);
+            }
+          });
+
+          if (currentTitle) {
+            scenarios[currentTitle] = currentSteps;
+            featureByScenario[currentTitle] = currentFeature;
+          }
+        }
+      });
+    }
+
+    baseDirs.forEach(dir => walk(dir));
+    featureScenariosCache = { scenarios, featureByScenario };
+    return featureScenariosCache;
+  }
+
+  // 2) Helpers para localizar cenário/feature a partir do título do teste
+
+  function sanitizeTitle(str) {
+    if (!str) return '';
+    return str.toLowerCase().normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  function findScenarioKey(testTitle) {
+    const { scenarios } = loadFeatureScenarios();
+    if (scenarios[testTitle]) return testTitle;
+
+    const normalized = testTitle.toLowerCase().trim();
+    const sanitizedTest = sanitizeTitle(testTitle);
+
+    for (const scenarioTitle of Object.keys(scenarios)) {
+      const normalizedScenario = scenarioTitle.toLowerCase().trim();
+      const sanitizedScenario = sanitizeTitle(scenarioTitle);
+      if (
+        normalizedScenario.includes(normalized) ||
+        normalized.includes(normalizedScenario) ||
+        sanitizedScenario === sanitizedTest ||
+        sanitizedScenario.includes(sanitizedTest) ||
+        sanitizedTest.includes(sanitizedScenario)
+      ) {
+        return scenarioTitle;
+      }
+    }
+    return null;
+  }
+
+  function findGherkinStepsForTitle(testTitle) {
+    const { scenarios } = loadFeatureScenarios();
+    const key = findScenarioKey(testTitle);
+    return key ? scenarios[key] : null;
+  }
+
+  function findFeatureForTitle(testTitle) {
+    const { featureByScenario } = loadFeatureScenarios();
+    const key = findScenarioKey(testTitle);
+    return key ? featureByScenario[key] : null;
+  }
+
+  // 3) Exemplo de uso dentro do generatePdf:
+  //
+  // let lastFeatureName = null;
+  //
+  // testResults.forEach((test) => {
+  //   checkPageBreak(doc);
+  //
+  //   const featureName = findFeatureForTitle(test.title);
+  //   if (featureName) {
+  //     if (featureName !== lastFeatureName) {
+  //       checkPageBreak(doc);
+  //       doc.fontSize(13).font('Helvetica-Bold').fillColor('#000000')
+  //          .text(`Feature: ${featureName}`);
+  //       doc.moveDown(0.5);
+  //       lastFeatureName = featureName;
+  //     }
+  //   }
+  //
+  //   doc.fontSize(12).font('Helvetica-Bold').fillColor('black')
+  //      .text(`${test.title}`);
+  //   ...
+  // });
+*/
 
 module.exports = { generatePdf };
