@@ -176,28 +176,21 @@ async function generatePdf(testResults, outputPath) {
       // --- LOOP DOS TESTES ---
       // Para cada teste executado, escreve título, status e evidências
       testResults.forEach((test, index) => {
-        // Descobre a Feature correspondente ao título do teste (cenário)
         const featureName = findFeatureForTitle(test.title);
-        if (featureName && featureName !== lastFeatureName) {
-          // Quando mudar de Feature (e não for a primeira), força ir para uma nova página
-          if (lastFeatureName !== null) {
-            doc.addPage();
-            doc.rect(0, 0, 600, 20).fill('#E4002B');
-            doc.fillColor('black');
-            doc.moveDown(2);
-          }
+        const isNewFeature = featureName && featureName !== lastFeatureName;
+
+        if (doc.y > 700 || (isNewFeature && lastFeatureName !== null)) {
+          doc.addPage();
+          doc.rect(0, 0, 600, 20).fill('#E4002B');
+          doc.fillColor('black');
+          doc.moveDown(2);
+        }
+
+        if (isNewFeature) {
           doc.fontSize(13).font('Helvetica-Bold').fillColor('#000000')
              .text(`Feature: ${featureName}`);
           doc.moveDown(0.5);
           lastFeatureName = featureName;
-        } else {
-          // Quebra de página se necessário (apenas quando não muda de Feature)
-          if (doc.y > 700) {
-            doc.addPage();
-            doc.rect(0, 0, 600, 20).fill('#E4002B'); // Repete a faixa na nova página
-            doc.fillColor('black'); // Reseta a cor
-            doc.moveDown(2);
-          }
         }
 
         // Título do cenário / teste
